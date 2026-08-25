@@ -32,6 +32,13 @@ def test_close_project_keeps_window_open_and_import_actions_are_explicit(
   gui_artifact_widgets.append(window)
   window._project_path = tmp_path / "old.flowdesk"
   window._project_dirty = False
+  window._sample_browser._manual_overlay_sample_ids = {"old-a"}
+  window._sample_browser._manual_overlay_colors = {"old-a": "#123456"}
+  window._sample_browser._comparison_sets = [{
+    "id": "old-pair",
+    "members": [{"sample_id": "old-a"}, {"sample_id": "old-b"}],
+  }]
+  window._sample_browser._overlay_mode = "manual_plus_comparison"
 
   assert window.action_open_directory.objectName() == "actionOpenDirectory"
   assert window.action_open_files.objectName() == "actionOpenFiles"
@@ -45,6 +52,9 @@ def test_close_project_keeps_window_open_and_import_actions_are_explicit(
   assert window._project_path is None
   assert window._project_dirty is False
   assert window._sample_browser.samples() == []
+  assert window._sample_browser.overlay_state()["manual_overlay_sample_ids"] == []
+  assert window._sample_browser.overlay_state()["comparison_sets"] == []
+  assert window._sample_browser.overlay_state()["overlay_mode"] == "manual_only"
   assert window._project_id.startswith("flowdesk_session_")
 
 

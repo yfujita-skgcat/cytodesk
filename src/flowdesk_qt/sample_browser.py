@@ -199,11 +199,33 @@ class SampleBrowser(QWidget):
         self._rebuild_sample_list()
 
     def clear_samples(self) -> None:
-        """Remove all samples without emitting per-sample removal callbacks."""
+        """Remove samples and all project-owned overlay state.
+
+        This method is used when replacing a project/session wholesale.  The
+        overlay selections belong to that session and must not survive into a
+        new sample catalog.
+        """
         self._samples.clear()
         self._known_paths.clear()
         self._selected_index = -1
         self._list_widget.clear()
+        self._manual_overlay_sample_ids.clear()
+        self._manual_overlay_colors.clear()
+        self._overlay_roles.clear()
+        self._comparison_sets.clear()
+        self._comparison_role_colors = {
+            "reference": "#377eb8",
+            "target": "#e67e22",
+            "positive_control": "#2ca02c",
+            "negative_control": "#7f7f7f",
+        }
+        self._overlay_mode = "manual_only"
+        if hasattr(self, "_overlay_mode_combo"):
+            index = self._overlay_mode_combo.findData(self._overlay_mode)
+            if index >= 0:
+                self._overlay_mode_combo.blockSignals(True)
+                self._overlay_mode_combo.setCurrentIndex(index)
+                self._overlay_mode_combo.blockSignals(False)
 
     def overlay_state(self) -> dict[str, object]:
         """Return display-only manual overlay state for the current plot view."""
@@ -212,18 +234,57 @@ class SampleBrowser(QWidget):
             sample.id for sample in self._samples
             if sample.id in self._manual_overlay_sample_ids
         ]
-        ordered_ids.extend(sorted(self._manual_overlay_sample_ids - known_ids))
+        manual_colors = {
+            sample_id: color
+            for sample_id, color in self._manual_overlay_colors.items()
+            if sample_id in known_ids
+        }
+        overlay_roles = {
+            sample_id: role
+            for sample_id, role in self._overlay_roles.items()
+            if sample_id in known_ids
+        }
         return {
-            # Persist a deterministic list, but derive its order from the visible
-            # Samples list rather than sample IDs.  The renderer reverses this
-            # order so the upper row is the frontmost overlay.
+            # Persist a deterministic list derived from the visible Samples
+            # list.  Unknown IDs are session residue and must not be serialized.
+            # The renderer reverses this order so the upper row is frontmost.
             "manual_overlay_sample_ids": ordered_ids,
-            "manual_overlay_colors": dict(self._manual_overlay_colors),
-            "overlay_roles": dict(self._overlay_roles),
-            "comparison_sets": [dict(value) for value in self._comparison_sets],
+            "manual_overlay_colors": manual_colors,
+            "overlay_roles": overlay_roles,
+            "comparison_sets": self._normalized_comparison_sets(known_ids),
             "comparison_role_colors": dict(self._comparison_role_colors),
             "overlay_mode": self._overlay_mode,
         }
+
+    def _normalized_comparison_sets(
+        self, known_ids: set[str] | None = None
+    ) -> list[dict[str, object]]:
+        """Return comparison sets containing only current sample IDs."""
+        allowed = known_ids if known_ids is not None else {
+            sample.id for sample in self._samples
+        }
+        normalized: list[dict[str, object]] = []
+        for raw in self._comparison_sets:
+            if not isinstance(raw, dict):
+                continue
+            members: list[dict[str, object]] = []
+            seen: set[str] = set()
+            for member in raw.get("members", []):
+                if not isinstance(member, dict):
+                    continue
+                sample_id = str(member.get("sample_id", ""))
+                if not sample_id or sample_id not in allowed or sample_id in seen:
+                    continue
+                normalized_member = dict(member)
+                normalized_member["sample_id"] = sample_id
+                members.append(normalized_member)
+                seen.add(sample_id)
+            if len(members) < 2:
+                continue
+            comparison = dict(raw)
+            comparison["members"] = members
+            normalized.append(comparison)
+        return normalized
 
     def set_overlay_state(
         self,
@@ -246,6 +307,7 @@ class SampleBrowser(QWidget):
             sample_id: role for sample_id, role in (roles or {}).items() if sample_id in known
         }
         self._comparison_sets = [dict(value) for value in (comparison_sets or [])]
+        self._comparison_sets = self._normalized_comparison_sets(known)
         if role_colors:
             self._comparison_role_colors.update(role_colors)
         self._overlay_mode = overlay_mode if overlay_mode in {
@@ -262,11 +324,13 @@ class SampleBrowser(QWidget):
     def comparison_overlay_sample_ids(self, active_sample_id: str | None) -> set[str]:
         if self._overlay_mode not in {"manual_plus_comparison", "comparison_only"}:
             return set()
+        known_ids = {sample.id for sample in self._samples}
         for definition in self._comparison_sets:
             members = definition.get("members", [])
             member_ids = {
                 str(member.get("sample_id")) for member in members if isinstance(member, dict)
             }
+            member_ids.intersection_update(known_ids)
             if active_sample_id in member_ids:
                 return member_ids - {active_sample_id}
         return set()

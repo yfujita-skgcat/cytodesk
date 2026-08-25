@@ -65,7 +65,7 @@ from flowdesk_qt.group_panel import GroupPanel  # noqa: E402
 from flowdesk_qt.main_window import MainWindow, _project_bundle_path  # noqa: E402
 from flowdesk_qt.plot_export_dialog import PlotExportDialog  # noqa: E402
 from flowdesk_qt.plot_widget import PlotWidget  # noqa: E402
-from flowdesk_qt.sample_browser import SampleBrowser  # noqa: E402
+from flowdesk_qt.sample_browser import SampleBrowser, _SampleInfo  # noqa: E402
 from flowdesk_storage.project import load_project  # noqa: E402
 
 
@@ -777,6 +777,10 @@ def test_overlay_display_disables_population_colors_for_active_base_layer() -> N
   window = MainWindow()
   try:
     window._current_sample_id = "active"
+    window._sample_browser._samples = [
+      _SampleInfo("active", "Active", "", type("Info", (), {"event_count": 0})()),
+      _SampleInfo("overlay", "Overlay", "", type("Info", (), {"event_count": 0})()),
+    ]
     window._sample_browser._manual_overlay_sample_ids.add("overlay")
     window._gate_editor._population_display_colors = {"positive": "#ff0000"}
 

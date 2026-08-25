@@ -196,7 +196,7 @@ Channelsタブ上部の表は選択中サンプルに実在する acquired/deriv
 |Add FCS Directory...|Ctrl+O|選択したディレクトリ直下の `*.fcs` を現在のセッションへ追加する。既存サンプルは消えず、サブディレクトリは再帰検索しない。|
 |Add FCS Files...|Ctrl+Shift+O|複数の FCS ファイルを現在のセッションへ追加する。既存サンプルは消えない。|
 |Open Project...|—|既存 `.flowdesk` directory bundle を開き、そのbundleを以後のcurrent project（Ctrl+Sの保存先）に切り替える。より新しい recovery copy がある場合は、別コピーとして復元するか確認される。|
-|Close Project|—|現在の project だけを閉じ、Flowdeskを終了せず空の未保存セッションへ戻る。未保存変更がある場合は Save / Discard / Cancel を選ぶ。|
+|Close Project|—|現在の project だけを閉じ、Flowdeskを終了せず空の未保存セッションへ戻る。未保存変更がある場合は Save / Discard / Cancel を選ぶ。Samplesのmanual overlay、comparison set、overlay色も新しいセッションへ持ち越されない。|
 |Save Project|Ctrl+S|保存済みprojectを現在の `.flowdesk` directory bundleへ上書き保存する。未保存の場合は保存名を入力する。|
 |Save Project As...|—|常に保存名を入力し、新しい `.flowdesk` directory bundleとして保存する。既存bundleを指定した場合は上書き確認を表示する。|
 |Save Analysis Settings...|—|サンプル、FCSパス、Resultsを含めず、再利用可能な解析定義だけを `.flowdesk-settings` directory bundle として保存する。|
