@@ -2096,6 +2096,25 @@ overlayなし・一source・共有範囲なしだけが単純な独立ケース�
   Increment 1--4、core/GUI/CLI parity、ユーザーマニュアル更新、obsolete GUI control削除を完了。
   Windows/macOSのnative package検証は別のCross-platform runtime hardening項目として残す。
 
+## GUI usability follow-up: Samples一覧へのFCS drag-and-drop
+
+詳細な契約、対象file、非目標、test、受け入れ条件は
+`docs/implementation/sample-list-fcs-drag-and-drop.md`を正とする。
+一度のLLM実行では下記incrementを一つだけ実装し、既存の内部サンプル並べ替えと
+Add FCS Files...の挙動を壊さないこと。
+
+- [ ] Increment 1: `QMimeData.urls()` / `QUrl.toLocalFile()`を使って、Samples一覧へ
+  ローカル`.fcs`ファイルを1個または複数dropできるようにする。内部のsample reorder
+  dragとはevent sourceで分岐し、外部dropでlist itemを誤挿入しない。大文字拡張子、Unicode/
+  空白path、directory、非local URL、invalid FCS、duplicateのtestを追加する。
+- [ ] Increment 2: SamplesペインのAdd FCS Files...、File menuのAdd FCS Files...、外部dropを
+  MainWindowの共通import/session処理へ接続する。既存sample、stable ID、canonical orderを
+  保持し、追加成功時のdirty-state、partial failureのfeedback、no implicit pipeline実行を
+  testする。
+- [ ] Increment 3: `docs/user-manual/user_manual.md`へ操作方法と制限を追記し、native Linux
+  (GNOME Files)、Windows (Explorer)、macOS (Finder) packageでtargeted GUI testと実機確認を
+  行う。未検証OSを対応済みと記載しない。
+
 ## Release E: OS配布とリリース自動化 [P1]
 
 配布準備のPhase 1（必須依存、`python -m flowdesk_qt`、OS標準のユーザー領域、
