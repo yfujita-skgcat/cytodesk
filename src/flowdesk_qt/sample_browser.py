@@ -7,11 +7,11 @@ analysis.  Delegates all FCS I/O to ``flowdesk_core.fcs_io``.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QMimeData, QSize, Qt, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -42,6 +42,49 @@ from flowdesk_core.models import ChannelSpec
 from flowdesk_qt.diagnostics import invoke_callback
 
 DEFAULT_OVERLAY_SAMPLE_COLOR = "#4c78a8"
+
+
+@dataclass(frozen=True)
+class _FcsFileDropResult:
+  """Validated local FCS paths extracted from an external drag payload."""
+
+  paths: tuple[str, ...]
+  rejected: tuple[tuple[str, str], ...]
+
+
+def _validate_fcs_file_drop(mime_data: QMimeData) -> _FcsFileDropResult:
+  """Return local existing FCS paths and reasons for rejected URLs.
+
+  Qt exposes file-manager drops as ``QUrl`` objects on all supported desktop
+  platforms.  Keep the URL-to-path conversion here so no platform-specific
+  URI parsing leaks into the sample import code.
+  """
+  if not mime_data.hasUrls():
+    return _FcsFileDropResult((), ())
+
+  paths: list[str] = []
+  rejected: list[tuple[str, str]] = []
+  for url in mime_data.urls():
+    source = url.toString()
+    if not url.isLocalFile():
+      rejected.append((source, "not a local file"))
+      continue
+    path_text = url.toLocalFile()
+    if not path_text:
+      rejected.append((source, "empty local path"))
+      continue
+    path = Path(path_text)
+    if path.suffix.casefold() != ".fcs":
+      rejected.append((path_text, "file extension is not .fcs"))
+      continue
+    if path.is_dir():
+      rejected.append((path_text, "directories are not supported"))
+      continue
+    if not path.is_file():
+      rejected.append((path_text, "file does not exist"))
+      continue
+    paths.append(path_text)
+  return _FcsFileDropResult(tuple(paths), tuple(rejected))
 
 # ---------------------------------------------------------------------------
 # Per-sample metadata model (GUI-side only, no scientific logic)
@@ -75,6 +118,7 @@ class _SampleListWidget(QListWidget):
 
   order_changed = Signal(list)
   move_requested = Signal(int)
+  fcs_files_dropped = Signal(list)
 
   def keyPressEvent(self, event) -> None:
     if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -88,7 +132,42 @@ class _SampleListWidget(QListWidget):
         return
     super().keyPressEvent(event)
 
+  def dragEnterEvent(self, event) -> None:
+    """Accept internal moves or valid local FCS file-manager drags."""
+    if event.source() is self:
+      super().dragEnterEvent(event)
+      return
+    result = _validate_fcs_file_drop(event.mimeData())
+    if result.paths:
+      event.setDropAction(Qt.DropAction.CopyAction)
+      event.accept()
+      return
+    event.ignore()
+
+  def dragMoveEvent(self, event) -> None:
+    """Keep external drag acceptance consistent with drag-enter handling."""
+    if event.source() is self:
+      super().dragMoveEvent(event)
+      return
+    result = _validate_fcs_file_drop(event.mimeData())
+    if result.paths:
+      event.setDropAction(Qt.DropAction.CopyAction)
+      event.accept()
+      return
+    event.ignore()
+
   def dropEvent(self, event) -> None:
+    """Reorder internal items or emit validated external FCS paths."""
+    if event.source() is not self:
+      result = _validate_fcs_file_drop(event.mimeData())
+      if not result.paths:
+        event.ignore()
+        return
+      event.setDropAction(Qt.DropAction.CopyAction)
+      event.accept()
+      self.fcs_files_dropped.emit(list(result.paths))
+      return
+
     before = [
       str(self.item(index).data(Qt.ItemDataRole.UserRole))
       for index in range(self.count())
@@ -472,6 +551,15 @@ class SampleBrowser(QWidget):
         """Register a callback invoked once for a multi-sample removal."""
         self._batch_removed_callbacks.append(callback)
 
+    def on_fcs_files_dropped(self, callback: Any) -> None:
+        """Register a callback after external FCS files are processed.
+
+        The callback receives ``(paths, added_count)``.  MainWindow can use
+        this notification for session bookkeeping without duplicating the
+        existing FCS validation and sample construction.
+        """
+        self._fcs_drop_callbacks.append(callback)
+
     def on_sample_reconnected(self, callback: Any) -> None:
         """Register a callback invoked after a reconnect is accepted."""
         self._reconnected_callbacks.append(callback)
@@ -519,6 +607,13 @@ class SampleBrowser(QWidget):
         return True
 
     # -- private ------------------------------------------------------------
+
+    def _on_fcs_files_dropped(self, paths: list[str]) -> None:
+        """Add validated files emitted by the sample-list drop handler."""
+        dropped_paths = list(paths)
+        added_count = self.add_samples_from_paths(dropped_paths)
+        for callback in self._fcs_drop_callbacks:
+            invoke_callback(callback, dropped_paths, added_count)
 
     def _add_single_file(self, path: str) -> bool:
         """Try to read FCS metadata and add to the list.
@@ -949,6 +1044,7 @@ class SampleBrowser(QWidget):
         self._selection_callbacks: list[Any] = []
         self._removed_callbacks: list[Any] = []
         self._batch_removed_callbacks: list[Any] = []
+        self._fcs_drop_callbacks: list[Any] = []
         self._reconnected_callbacks: list[Any] = []
         self._reordered_callbacks: list[Any] = []
         self._overlay_callbacks: list[Any] = []
@@ -964,6 +1060,10 @@ class SampleBrowser(QWidget):
         self._list_widget.setDragDropMode(QAbstractItemView.InternalMove)
         self._list_widget.order_changed.connect(self.reorder_samples)
         self._list_widget.move_requested.connect(self.move_selected_sample)
+        self._list_widget.fcs_files_dropped.connect(self._on_fcs_files_dropped)
+        self._list_widget.setToolTip(
+            "Drag local .fcs files here to add them to the current session"
+        )
         self._list_widget.currentRowChanged.connect(self._on_list_selection_changed)
         self._list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self._list_widget.customContextMenuRequested.connect(

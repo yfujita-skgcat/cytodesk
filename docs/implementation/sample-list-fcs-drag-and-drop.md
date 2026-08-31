@@ -2,8 +2,9 @@
 
 ## Status
 
-This guide defines the implementation plan. It is not an authorization to
-change the FCS model, pipeline, or project schema.
+Increment 1 is implemented. Increment 2 and Increment 3 remain pending. This
+guide is not an authorization to change the FCS model, pipeline, or project
+schema.
 
 ## Goal
 

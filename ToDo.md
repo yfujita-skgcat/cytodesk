@@ -2103,7 +2103,7 @@ overlayなし・一source・共有範囲なしだけが単純な独立ケース�
 一度のLLM実行では下記incrementを一つだけ実装し、既存の内部サンプル並べ替えと
 Add FCS Files...の挙動を壊さないこと。
 
-- [ ] Increment 1: `QMimeData.urls()` / `QUrl.toLocalFile()`を使って、Samples一覧へ
+- [x] Increment 1 済み: `QMimeData.urls()` / `QUrl.toLocalFile()`を使って、Samples一覧へ
   ローカル`.fcs`ファイルを1個または複数dropできるようにする。内部のsample reorder
   dragとはevent sourceで分岐し、外部dropでlist itemを誤挿入しない。大文字拡張子、Unicode/
   空白path、directory、非local URL、invalid FCS、duplicateのtestを追加する。

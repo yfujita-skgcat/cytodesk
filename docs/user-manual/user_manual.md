@@ -300,6 +300,8 @@ status 記号は概ね `✓`=channel match、`↕`=order differs、`≠`=channel
 
 Manual順では、行をドラッグして並べ替えできます。現在のsampleを選択した状態で `Ctrl+Up` / `Ctrl+Down` を押すと1行移動します。通常のUp/Downはsample選択に使います。並べ替えはstable sample IDを保持したままprojectへ保存され、解析結果の数値は変更しません。
 
+GNOME Files、Windows Explorer、macOS Finderなどのファイルマネージャーから、Samples一覧へローカルの `.fcs` ファイルを1個または複数ドラッグ＆ドロップして追加できます。空白や日本語を含むファイル名にも対応します。`.fcs` 以外、存在しないファイル、ディレクトリ、リモートURLは追加されません。ディレクトリ内のFCSを追加する場合は `Add FCS Directory...` を使用してください。
+
 ### 7.3 Samples list の右クリックメニュー
 
 複数選択は Ctrl/Shift を使う。
