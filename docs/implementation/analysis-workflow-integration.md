@@ -291,7 +291,7 @@ Required semantics:
 - No hidden legacy scale remains active underneath a formal transform.
 
 Legacy gate scale fields are not accepted by the current project format. Projects
-containing them must be explicitly converted outside Flowdesk before loading; Flowdesk
+containing them must be explicitly converted outside CytoDesk before loading; CytoDesk
 must not guess a transform from persisted coordinates.
 
 ### Axis quick-transform implementation boundary

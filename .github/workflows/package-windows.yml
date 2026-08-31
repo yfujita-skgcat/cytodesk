@@ -95,14 +95,14 @@ jobs:
         run: |
           Compress-Archive `
             -Path dist\flowdesk, dist\flowdesk-cli `
-            -DestinationPath Flowdesk-Windows-x64.zip
+            -DestinationPath CytoDesk-Windows-x64.zip
 
       - name: Upload Windows package
         uses: actions/upload-artifact@v5
         with:
-          name: Flowdesk-Windows-x64
+          name: CytoDesk-Windows-x64
           path: |
-            Flowdesk-Windows-x64.zip
+            CytoDesk-Windows-x64.zip
             artifacts/package-smoke/
             artifacts/platform-report.json
             artifacts/density-runtime-benchmark.json

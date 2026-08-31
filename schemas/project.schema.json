@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://flowdesk.local/schemas/project.schema.json",
-  "title": "Flowdesk Project Manifest",
+  "title": "CytoDesk Project Manifest",
   "type": "object",
   "required": ["project_id", "project_version", "pipeline_version", "samples"],
   "properties": {

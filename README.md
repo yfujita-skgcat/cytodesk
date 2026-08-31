@@ -1,11 +1,16 @@
-# flowdesk
+# CytoDesk
 
 <p align="center">
   <strong>English</strong> |
   <a href="README.ja.md">日本語</a>
 </p>
 
-Flowdesk is an early-stage Python project for a Linux-first FlowJo-like flow cytometry analysis application.
+CytoDesk is an early-stage Python project for a Linux-first FlowJo-like flow cytometry analysis application.
+
+CytoDesk is the current public brand. During the transition, compatibility
+identifiers such as the `flowdesk` CLI, `flowdesk_*` Python packages, `.flowdesk`
+project bundles, and PyInstaller's internal `flowdesk` output directories remain
+unchanged.
 
 For the user-facing workflow and feature reference, see the
 [User Manual](docs/user-manual/user_manual.md).
@@ -28,7 +33,7 @@ For the user-facing workflow and feature reference, see the
 
 Copyright (c) 2026 Yoshihiko Fujita (`yfujita.skgcat@gmail.com`).
 
-Flowdesk is distributed under the BSD 3-Clause License. See [LICENSE](LICENSE)
+CytoDesk is distributed under the BSD 3-Clause License. See [LICENSE](LICENSE)
 for the complete license text. The same information is available from
 `flowdesk --help`, `flowdesk --credits`, and the GUI Help menu.
 
@@ -53,7 +58,7 @@ python -m pip install -e '.[gui,dev,gui-test]'
 
 ## Building desktop packages
 
-Flowdesk currently builds native PyInstaller `onedir` packages. The build
+CytoDesk currently builds native PyInstaller `onedir` packages. The build
 produces both the GUI (`flowdesk`) and headless CLI (`flowdesk-cli`) artifacts
 under `dist/`. These are development/portable directory packages; Windows
 installers and signed/notarized macOS DMG files are not generated yet.
@@ -142,7 +147,7 @@ versions recorded in the manifest when sharing a package.
 The repository includes `.github/workflows/package-windows.yml`. It runs on a
 native `windows-latest` runner and builds both the GUI and CLI packages, runs
 core tests and the packaged smoke test, writes a build manifest, and uploads
-`Flowdesk-Windows-x64.zip` as an Actions artifact.
+`CytoDesk-Windows-x64.zip` as an Actions artifact.
 
 Run it from **Actions → Package Windows → Run workflow**, or push a tag such
 as `v0.1.0`. The workflow creates a portable ZIP, not an installer, and the
@@ -152,7 +157,7 @@ require a later release workflow.
 
 The repository also includes `package-linux.yml` and `package-macos.yml`.
 They run on `ubuntu-22.04` and `macos-14`, respectively, and upload
-`Flowdesk-Linux-x86_64.tar.gz` and `Flowdesk-macOS-arm64.zip` as separate
+`CytoDesk-Linux-x86_64.tar.gz` and `CytoDesk-macOS-arm64.zip` as separate
 artifacts. These are native PyInstaller directory packages. AppImage,
 macOS `.app`/DMG packaging, signing, and notarization are not included yet.
 
@@ -333,7 +338,7 @@ can be enabled safely.
 
 ### Creating gates and population hierarchies
 
-Flowdesk evaluates gates as a parent-child population hierarchy. Gate
+CytoDesk evaluates gates as a parent-child population hierarchy. Gate
 membership is calculated by the GUI-independent pipeline against full event
 data; displayed/downsampled points are never used for population counts.
 

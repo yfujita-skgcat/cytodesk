@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Flowdesk is developed and manually exercised primarily on Linux, while the
+CytoDesk is developed and manually exercised primarily on Linux, while the
 Windows and macOS packages are currently checked mainly by native CI build and
 shallow smoke tests. This guide defines the work required to make Windows and
 macOS support evidence-based rather than inferred from Linux success.
@@ -167,7 +167,7 @@ failures unless a reproducer demonstrates them.
 - Add explicit fixtures for big/little-endian FCS, Unicode metadata, spillover
   matrices, compensation near the documented condition threshold, derived
   non-finite values, transformed gate boundaries, and empty populations.
-- Record Python, NumPy, BLAS/runtime, Qt, Pillow, architecture, and Flowdesk
+- Record Python, NumPy, BLAS/runtime, Qt, Pillow, architecture, and CytoDesk
   version with native parity artifacts.
 
 ## Numbered implementation increments

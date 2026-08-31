@@ -1,6 +1,6 @@
 # Processing Pipeline
 
-Flowdesk uses this canonical order:
+CytoDesk uses this canonical order:
 
 ```text
 raw events

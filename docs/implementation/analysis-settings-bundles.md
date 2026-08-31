@@ -21,7 +21,7 @@ importer, or a cache/result restore mechanism.
 3. The dialog shows a preflight summary: source type/version, definitions to
    replace, definitions intentionally excluded, and channel/ID incompatibilities
    with the currently open samples.
-4. After confirmation, Flowdesk atomically replaces the current project's
+4. After confirmation, CytoDesk atomically replaces the current project's
    analysis definitions while retaining its samples and their file references.
    It clears authoritative Results and Current Sample Preview, marks results
    stale, and requires `Run Pipeline` before Results/export are available.

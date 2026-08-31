@@ -53,7 +53,7 @@ colors never become gate geometry, Group binding, or scientific defaults.
 4. Connect autosave/performance defaults only when a project has no explicit setting.
 5. Add Preferences dialog with Apply/Cancel and stable object names.
 6. Audit keyboard focus/order, labels, shortcuts, and non-color-only status indicators.
-7. Add context help links to Flowdesk user documentation.
+7. Add context help links to CytoDesk user documentation.
 
 ## Required tests
 
@@ -70,7 +70,7 @@ colors never become gate geometry, Group binding, or scientific defaults.
 ## Do not do
 
 - Do not store credentials or sensitive sample metadata in preferences.
-- Do not use `flowjo-manual.md` as Flowdesk operational help.
+- Do not use `flowjo-manual.md` as CytoDesk operational help.
 - Do not make theme/font changes invalidate analysis caches.
 
 ## Verification

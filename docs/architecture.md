@@ -1,6 +1,6 @@
 # Architecture
 
-Flowdesk separates scientific logic from presentation.
+CytoDesk separates scientific logic from presentation.
 
 ```text
 flowdesk_qt

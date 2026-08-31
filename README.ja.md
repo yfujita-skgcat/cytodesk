@@ -1,12 +1,16 @@
-# flowdesk
+# CytoDesk
 
 <p align="center">
   <a href="README.md">English</a> |
   <strong>日本語</strong>
 </p>
 
-Flowdesk は、Linux-first の FlowJo 類似フローサイトメトリー解析アプリケーションを
+CytoDesk は、Linux-first の FlowJo 類似フローサイトメトリー解析アプリケーションを
 開発するための初期段階の Python プロジェクトです。
+
+CytoDesk は現在の公開ブランド名です。移行期間中は互換性のため、`flowdesk` CLI、
+`flowdesk_*` Python package、`.flowdesk` project bundle、PyInstaller 内部の
+`flowdesk` 出力ディレクトリ名を変更せずに維持します。
 
 利用者向けの操作方法と機能説明は、[ユーザーマニュアル](docs/user-manual/user_manual.md)
 を参照してください。
@@ -29,7 +33,7 @@ Flowdesk は、Linux-first の FlowJo 類似フローサイトメトリー解析
 
 Copyright (c) 2026 Yoshihiko Fujita (`yfujita.skgcat@gmail.com`)。
 
-Flowdesk は BSD 3-Clause License で配布されます。完全な本文は [LICENSE](LICENSE) を
+CytoDesk は BSD 3-Clause License で配布されます。完全な本文は [LICENSE](LICENSE) を
 参照してください。クレジットは `flowdesk --help`、`flowdesk --credits`、GUI の Help
 メニューからも確認できます。
 

@@ -109,7 +109,7 @@ error and never falls through to a lower-priority choice.
 
 `CompensationProvenanceSpec` records the source sample and FCS metadata keyword,
 explicit control sample/population IDs, algorithm and algorithm version,
-Flowdesk/software version, duplicate lineage, and an ordered manual edit
+CytoDesk/software version, duplicate lineage, and an ordered manual edit
 history. Existing `created_by`, `created_at`, source enum, and notes remain on
 `CompensationMatrixSpec` for compatibility.
 

@@ -1,6 +1,6 @@
-# Flowdesk Agent Guide
+# CytoDesk Agent Guide
 
-Flowdesk is a Linux-first, cross-platform-capable FlowJo-like flow cytometry analysis application.
+CytoDesk is a Linux-first, cross-platform-capable FlowJo-like flow cytometry analysis application.
 
 ## Project Rules
 
@@ -80,7 +80,7 @@ Before adding GUI behavior, ensure the same behavior can be represented in the c
 
 ## GUI Debugging
 
-Flowdesk GUI uses PySide6 and pyqtgraph.
+CytoDesk GUI uses PySide6 and pyqtgraph.
 
 ```bash
 ./tools/run-gui-tests.sh

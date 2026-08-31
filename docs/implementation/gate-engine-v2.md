@@ -75,7 +75,7 @@ sample-specific fitted geometry. Do not add a GUI placeholder before the core re
 
 ### B5-Auto: `quantile_rectangle.v1`
 
-This is a Flowdesk-defined automatic gate and must not be presented as FlowJo Auto
+This is a CytoDesk-defined automatic gate and must not be presented as FlowJo Auto
 compatibility. The primary method computes independent X/Y quantiles over the full
 selected Population after excluding non-finite paired events. Defaults are
 `q_low=0.01`, `q_high=0.99`, and `minimum_events=20`; all are persisted in the
@@ -104,7 +104,7 @@ implement a second fitting path.
 
 ### B5-Tethered: `translated_rectangle.v1`
 
-This Flowdesk-defined algorithm copies a rectangle anchor's data-coordinate geometry
+This CytoDesk-defined algorithm copies a rectangle anchor's data-coordinate geometry
 and applies explicit X/Y offsets. The template stores only the anchor relationship
 and offsets; the sample-specific result stores the anchor hash, algorithm version,
 diagnostics, and fitted geometry. Missing or non-rectangle anchors fail explicitly,
@@ -129,7 +129,7 @@ conflict/undo behavior.
 
 ### B5-Magnetic: `largest_gap_range.v1`
 
-This is a Flowdesk-defined magnetic-bead heuristic. It sorts all finite values of
+This is a CytoDesk-defined magnetic-bead heuristic. It sorts all finite values of
 the selected full Population on one configured parameter, finds the largest adjacent
 gap, and uses its midpoint as the inclusive lower bound of a range gate. The
 reference method is NumPy sorting and `argmax`; ties resolve to the first gap.

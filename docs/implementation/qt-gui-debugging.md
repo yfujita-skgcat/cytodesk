@@ -1,4 +1,4 @@
-# Flowdesk GUIデバッグ・自動テスト基盤 実装指示書
+# CytoDesk GUIデバッグ・自動テスト基盤 実装指示書
 
 ## 0. この指示書の位置づけ
 
@@ -71,7 +71,7 @@ GUIテスト基盤では再発時に原因を追跡できる構成にしてく�
 
 Codexなどのコーディングエージェントが、手動操作なしで以下を反復できるようにしてください。
 
-1. Flowdesk GUIをデバッグ設定で起動する
+1. CytoDesk GUIをデバッグ設定で起動する
 2. GUI操作またはGUI相当のイベントを再現する
 3. Qt、pyqtgraph、Flowdesk内部状態を観察する
 4. 失敗時にログ、スクリーンショット、UI状態を保存する
@@ -569,7 +569,7 @@ gui-debug:
 
 `MainWindow`を作成して表示し、以下を確認してください。
 
-- window titleが`Flowdesk`
+- window titleが`CytoDesk`
 - statusが`Ready`
 - 主要widgetを`objectName`で取得できる
 - sample、gate、population結果が初期状態で空
@@ -706,7 +706,7 @@ GUI不具合を修正する際は、以下の順序を必須としてくださ�
 ````markdown
 ## GUI Debugging
 
-Flowdesk GUI uses PySide6 and pyqtgraph.
+CytoDesk GUI uses PySide6 and pyqtgraph.
 
 Run GUI tests with:
 

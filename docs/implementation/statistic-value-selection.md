@@ -11,7 +11,7 @@ should this metric summarize?**  Replace the current independent `Parameter`,
 
 The selector presents raw acquired values, compensated acquired values,
 explicit transformed values, and derived outputs as recognizable virtual
-choices.  Internally, Flowdesk continues to persist the established stable
+choices.  Internally, CytoDesk continues to persist the established stable
 triple:
 
 ```text

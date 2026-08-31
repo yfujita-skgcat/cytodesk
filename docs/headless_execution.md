@@ -1,6 +1,6 @@
 # Headless Execution
 
-Flowdesk projects created in the GUI must be executable without the GUI.
+CytoDesk projects created in the GUI must be executable without the GUI.
 
 Headless execution supports batch processing, server runs, cron jobs, and future integration with Snakemake, Nextflow, or HPC environments.
 

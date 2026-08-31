@@ -31,7 +31,7 @@ invalidated by dependency hash and never stored in command payloads.
 Initial commands: create/edit/rename/delete/reparent/duplicate gate, copy subtree, edit
 annotation, and bind analysis. A failed validation must leave state and undo index unchanged.
 
-Flowdesk's first command implementation uses a JSON-compatible project-state mapping
+CytoDesk's first command implementation uses a JSON-compatible project-state mapping
 (`dict[str, Any]`) as its boundary. Commands copy only definition data with
 `deepcopy`; raw event arrays, execution reports, and membership masks are never part
 of a command. Every command exposes a stable `type`, validates its input before

@@ -1,4 +1,4 @@
-# Flowdesk Source and Test Map for Local LLMs
+# CytoDesk Source and Test Map for Local LLMs
 
 ## Purpose
 
@@ -40,7 +40,7 @@ Scientific execution belongs in `flowdesk_core`. Persistence belongs in
 | `execution_context.py` | Run configuration | cancellation/progress/cache policy references |
 | `execution_report.py` | Reproducibility and run results | diagnostics, statistics, platform result references |
 | `export.py` | Core CSV/TSV serialization | Value/status formatting, never Qt image export |
-| `errors.py` | Flowdesk exception hierarchy | Stable typed errors/diagnostic conversion |
+| `errors.py` | CytoDesk exception hierarchy | Stable typed errors/diagnostic conversion |
 
 ### Proposed core modules
 

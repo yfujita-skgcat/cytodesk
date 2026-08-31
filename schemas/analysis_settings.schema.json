@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://flowdesk.example/schemas/analysis-settings.schema.json",
-  "title": "Flowdesk Analysis Settings Bundle",
+  "title": "CytoDesk Analysis Settings Bundle",
   "type": "object",
   "required": ["document_kind", "settings_version", "analysis_definition"],
   "properties": {

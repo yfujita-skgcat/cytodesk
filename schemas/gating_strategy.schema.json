@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://flowdesk.local/schemas/gating_strategy.schema.json",
-  "title": "Flowdesk Gating Strategy",
+  "title": "CytoDesk Gating Strategy",
   "type": "object",
   "required": ["id", "name", "gates"],
   "properties": {

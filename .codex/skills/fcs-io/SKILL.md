@@ -1,6 +1,6 @@
 ---
 name: fcs-io
-description: Guidance for implementing and reviewing Flowdesk FCS loading, metadata parsing, event array handling, channel identity mapping, and spillover matrix extraction. Use when changing FCS readers, FCS metadata models, channel naming, raw event immutability, or FCS fixture strategy.
+description: Guidance for implementing and reviewing CytoDesk FCS loading, metadata parsing, event array handling, channel identity mapping, and spillover matrix extraction. Use when changing FCS readers, FCS metadata models, channel naming, raw event immutability, or FCS fixture strategy.
 ---
 
 # FCS I/O Skill

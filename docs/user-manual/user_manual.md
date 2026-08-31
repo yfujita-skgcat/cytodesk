@@ -1,12 +1,12 @@
-# Flowdesk ユーザーマニュアル
+# CytoDesk ユーザーマニュアル
 
-**対象実装:** `rep(10).zip` に含まれる Flowdesk GUI  
-**確認日:** 2026-07-23  
-**対象バージョン表示:** Flowdesk 0.1.0  
+**対象実装:** `rep(10).zip` に含まれる CytoDesk GUI
+**確認日:** 2026-07-23
+**対象バージョン表示:** CytoDesk 0.1.0
 **対象アーカイブ SHA-256:** `f40e76d38c04a75ae6634f705eb2d35c1bc98b951adc41d8b617e76b4def8918`
 
 > [!IMPORTANT]
-> この文書はスクリーンショットだけでなく、`src/flowdesk_qt/` の実装、メニュー接続、ダイアログ、右クリックメニュー、GUI テストを基準に作成している。Flowdesk はまだ early-stage であり、画面に存在する項目の一部は機能が限定的、または保存済み定義がないと実行できない。
+> この文書はスクリーンショットだけでなく、`src/flowdesk_qt/` の実装、メニュー接続、ダイアログ、右クリックメニュー、GUI テストを基準に作成している。CytoDesk はまだ early-stage であり、画面に存在する項目の一部は機能が限定的、または保存済み定義がないと実行できない。ブランド変更の移行期間中は、CLI名、`.flowdesk` bundle拡張子、内部package名、既存UIラベルの一部に旧名称が残る。
 
 ## Batch Plot Export
 
@@ -30,7 +30,7 @@ PNG/JPEGのラベルフォントは、Windows/macOS/Linuxで同じ見かけの�
 
 ## 目次
 
-1. [Flowdesk の基本概念](#1-flowdesk-の基本概念)
+1. [CytoDesk の基本概念](#1-cytodesk-の基本概念)
 2. [起動方法](#2-起動方法)
 3. [基本的な解析手順](#3-基本的な解析手順)
 4. [メイン画面](#4-メイン画面)
@@ -52,9 +52,9 @@ PNG/JPEGのラベルフォントは、Windows/macOS/Linuxで同じ見かけの�
 
 ---
 
-## 1. Flowdesk の基本概念
+## 1. CytoDesk の基本概念
 
-Flowdesk では、次の三つの選択状態を区別する必要がある。
+CytoDesk では、次の三つの選択状態を区別する必要がある。
 
 |状態|意味|選択する場所|影響|
 |---|---|---|---|
@@ -164,7 +164,7 @@ statisticsを変更しない。
 
 ## 4. メイン画面
 
-![Flowdesk main window](assets/main-window.png)
+![CytoDesk main window](assets/main-window.png)
 
 画面は左から Samples、中央の Plot、右の Gating/Results/Channels に分かれる。境界は splitter でドラッグして幅を変更できる。
 
@@ -201,7 +201,7 @@ Channelsタブ上部の表は選択中サンプルに実在する acquired/deriv
 |Save Project As...|—|常に保存名を入力し、新しい `.flowdesk` directory bundleとして保存する。既存bundleを指定した場合は上書き確認を表示する。|
 |Save Analysis Settings...|—|サンプル、FCSパス、Resultsを含めず、再利用可能な解析定義だけを `.flowdesk-settings` directory bundle として保存する。|
 |Load Analysis Settings...|—|`.flowdesk-settings` または既存 `.flowdesk` project から解析定義を読み込み、現在のサンプルを維持したまま定義を置換する。|
-|Exit|Ctrl+Q|Flowdesk を終了する。|
+|Exit|Ctrl+Q|CytoDesk を終了する。|
 
 ファイル選択ダイアログの最後のディレクトリは操作ごとに個別保存される。FCS入力、ProjectのOpen、ProjectのSave As、Analysis Settingsの保存・読込、Recovery copyの保存先は互いに影響しない。ダイアログをキャンセルした場合は履歴を更新せず、履歴がない初回は現在のProjectディレクトリまたはカレントディレクトリから開始する。
 
@@ -549,7 +549,7 @@ invalid definition の詳細は cell tooltip に出る。
 
 |column toggle|内容|初期表示|
 |---|---|---:|
-|Stable ID|Flowdesk の channel stable ID|非表示|
+|Stable ID|CytoDesk の channel stable ID|非表示|
 |$PnN|FCS primary parameter name|表示|
 |$PnS|FCS short/stain name|表示|
 |Detector|detector metadata|表示|

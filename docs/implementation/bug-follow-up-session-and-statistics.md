@@ -118,7 +118,7 @@ rules.
   exists; a no-channel project gives an explicit empty-state message.
 - Saving, loading, and headless statistic execution preserve valid selections.
 
-## Increment 3 — Add Close Project without closing Flowdesk
+## Increment 3 — Add Close Project without closing CytoDesk
 
 ### Problem and current behavior
 

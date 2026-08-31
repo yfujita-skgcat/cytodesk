@@ -38,7 +38,7 @@ claim FlowJo Biex compatibility without versioned reference fixtures.
 
 ## Selected Logicle definition and references
 
-Flowdesk will implement the normalized Gating-ML 2.0 Logicle definition, not a
+CytoDesk will implement the normalized Gating-ML 2.0 Logicle definition, not a
 product-specific “Biexponential” mode. The normative scientific source is Wayne
 A. Moore and David R. Parks, “Update for the logicle data scale including
 operational code implementations,” *Cytometry Part A* 81A (2012), 273–277,
@@ -130,7 +130,7 @@ independent approximation or infer different `T/W/M/A` values.
 
 ### FlowJo compatibility statement
 
-Flowdesk’s future type will be named `logicle`, meaning the published
+CytoDesk’s future type will be named `logicle`, meaning the published
 Moore–Parks/Gating-ML transform. It will not be named `biex`, `FlowJo Biex`, or
 described as numerically equivalent to FlowJo. FlowJo’s product-specific
 parameter selection and rendering have not been verified with licensed,
@@ -285,7 +285,7 @@ unrelated legacy approximation and must never be relabeled as formal Logicle.
   binding for Linear. Events, geometry, membership, inverse coordinate display, and ticks
   use that one definition.
 - Legacy gate scale fields are not read-compatible. Projects containing them
-  must be explicitly converted outside Flowdesk before loading.
+  must be explicitly converted outside CytoDesk before loading.
 - Plot transform selection does not choose a statistic value domain. Native compensated/
   derived mean or median changes only when its `StatisticSpec` changes; transformed
   statistics require an explicit transform ID in that definition.

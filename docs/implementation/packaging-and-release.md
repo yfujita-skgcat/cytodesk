@@ -26,7 +26,7 @@ Phase 1の配布準備は実装済みである。
 
 ## Goal
 
-Pythonをインストールしていないユーザーが、Windows、macOS、LinuxでFlowdeskを簡単に導入できる配布物を作る。
+Pythonをインストールしていないユーザーが、Windows、macOS、LinuxでCytoDeskを簡単に導入できる配布物を作る。
 科学計算は既存のGUI-independent pipelineを使用し、パッケージング処理が結果計算を変更してはならない。
 
 ## Distribution model
@@ -101,7 +101,7 @@ reentrancy、multi-sample overlay/gate、JPEG/SVG/PDFを証明しないため、
 ### Windows
 
 Inno Setupまたは同等のinstallerで、ユーザー権限インストール、Start Menu、uninstaller、upgradeを提供する。
-初期install先は`%LOCALAPPDATA%\\Programs\\Flowdesk`を基本とし、管理者権限を必須にしない。
+初期install先は`%LOCALAPPDATA%\\Programs\\CytoDesk`を基本とし、管理者権限を必須にしない。
 `.fcs`関連付けは別optionとして扱い、既存関連付けを黙って上書きしない。
 
 ### macOS
@@ -118,6 +118,11 @@ Ubuntu 22.04相当をbuild baselineとするAppImageを作る。Ubuntu 22.04/24.
 
 tag `vX.Y.Z`を起点に、次をnative runnerで実行する。
 
+公開するアーカイブ名は `CytoDesk-Linux-x86_64.tar.gz`、
+`CytoDesk-macOS-arm64.zip`、`CytoDesk-Windows-x64.zip` とする。アーカイブ内の
+PyInstaller出力ディレクトリは、内部互換性のため当面 `flowdesk` と
+`flowdesk-cli` のまま維持する。
+
 1. core/GUI test、lint、type check
 2. Windows、macOS、LinuxのPyInstaller build
 3. package smoke test
@@ -129,7 +134,7 @@ tag `vX.Y.Z`を起点に、次をnative runnerで実行する。
 
 ## Licensing
 
-配布物へFlowdeskの`LICENSE`と`THIRD_PARTY_NOTICES.md`を必ず含める。`THIRD_PARTY_NOTICES.md`はFlowdesk本体のBSD 3-Clauseを変更せず、PySide6/Qt、NumPy、FlowIO、pyqtgraph、PyInstallerの適用ライセンスと、native packageで追加確認が必要な事項を明示する。GUI/CLIのPyInstaller specは両文書を成果物のルートへ同梱する。
+配布物へCytoDeskの`LICENSE`と`THIRD_PARTY_NOTICES.md`を必ず含める。`THIRD_PARTY_NOTICES.md`はCytoDesk本体のBSD 3-Clauseを変更せず、PySide6/Qt、NumPy、FlowIO、pyqtgraph、PyInstallerの適用ライセンスと、native packageで追加確認が必要な事項を明示する。GUI/CLIのPyInstaller specは両文書を成果物のルートへ同梱する。
 `tools/package.py manifest`は、ビルド環境に実際にインストールされた依存関係の
 バージョン、SPDX license expression（提供される場合）、従来型license metadata、
 license file名を`dependencies`として記録する。依存バージョンは固定しないため、

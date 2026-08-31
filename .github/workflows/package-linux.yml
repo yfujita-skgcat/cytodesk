@@ -69,15 +69,15 @@ jobs:
 
       - name: Create Linux archive
         run: >-
-          tar -czf Flowdesk-Linux-x86_64.tar.gz
+          tar -czf CytoDesk-Linux-x86_64.tar.gz
           -C dist flowdesk flowdesk-cli
 
       - name: Upload Linux package
         uses: actions/upload-artifact@v5
         with:
-          name: Flowdesk-Linux-x86_64
+          name: CytoDesk-Linux-x86_64
           path: |
-            Flowdesk-Linux-x86_64.tar.gz
+            CytoDesk-Linux-x86_64.tar.gz
             artifacts/package-smoke/
             artifacts/platform-report.json
           if-no-files-found: error

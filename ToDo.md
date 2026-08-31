@@ -1,4 +1,8 @@
-# Flowdesk LLM実装指令書
+# CytoDesk LLM実装指令書
+
+> 公開ブランド名は CytoDesk。`flowdesk` CLI、`flowdesk_*` Python package、`.flowdesk`
+> bundle、PyInstaller 内部の `flowdesk` 出力ディレクトリ名は、コード移行が完了するまで
+> 互換性識別子として維持する。release archive 名は CytoDesk ブランドへ移行済みである。
 
 対象リポジトリ: `<repository-root>`
 

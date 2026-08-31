@@ -61,14 +61,14 @@ jobs:
       - name: Create macOS archive
         run: |
           cd dist
-          zip -r ../Flowdesk-macOS-arm64.zip flowdesk flowdesk-cli
+          zip -r ../CytoDesk-macOS-arm64.zip flowdesk flowdesk-cli
 
       - name: Upload macOS package
         uses: actions/upload-artifact@v5
         with:
-          name: Flowdesk-macOS-arm64
+          name: CytoDesk-macOS-arm64
           path: |
-            Flowdesk-macOS-arm64.zip
+            CytoDesk-macOS-arm64.zip
             artifacts/package-smoke/
             artifacts/platform-report.json
           if-no-files-found: error

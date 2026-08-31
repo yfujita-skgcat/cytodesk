@@ -1,6 +1,6 @@
 # Project File Schema
 
-Flowdesk projects are directory bundles, not single JSON files.
+CytoDesk projects are directory bundles, not single JSON files.
 
 ```text
 example_project.flowdesk/

@@ -5,6 +5,7 @@ set -euo pipefail
 REMOTE="origin"
 BRANCH="main"
 VERSION_SCRIPT="./tools/version.py"
+PRODUCT_NAME="CytoDesk"
 
 WORKFLOWS=(
   "Package Linux"
@@ -130,7 +131,7 @@ case "$answer" in
 esac
 
 echo "Creating annotated tag..."
-git tag -a "$TAG" -m "Flowdesk $TAG"
+git tag -a "$TAG" -m "$PRODUCT_NAME $TAG"
 
 echo "Pushing tag..."
 git push "$REMOTE" "$TAG"
@@ -237,7 +238,7 @@ echo "Creating draft release..."
 gh release create "$TAG" \
   "${RELEASE_ASSETS[@]}" \
   --verify-tag \
-  --title "Flowdesk $TAG" \
+  --title "$PRODUCT_NAME $TAG" \
   --generate-notes \
   --draft
 

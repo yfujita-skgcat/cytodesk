@@ -43,7 +43,7 @@ Implement robust loading, validation, and saving for `.flowdesk` project bundles
 ## Required Tests
 
 - Loading `examples/example_project.flowdesk` succeeds.
-- Missing `manifest.json` raises a Flowdesk-specific exception.
+- Missing `manifest.json` raises a CytoDesk-specific exception.
 - Missing required manifest fields raise a validation error.
 - Relative sample paths resolve against the project bundle path.
 - A load-save-load round trip preserves execution profiles and derived parameter definitions.

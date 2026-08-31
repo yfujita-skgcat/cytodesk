@@ -1,6 +1,6 @@
 # Third-party notices
 
-Flowdesk's own source code is distributed under the BSD 3-Clause License in
+CytoDesk's own source code is distributed under the BSD 3-Clause License in
 [`LICENSE`](LICENSE). This file does not change that license and does not
 relicense any dependency.
 
@@ -17,7 +17,7 @@ Qt modules and distribution used to build the application.
 - [GNU LGPL version 3](https://www.gnu.org/licenses/lgpl-3.0.html)
 - [GNU GPL version 3](https://www.gnu.org/licenses/gpl-3.0.html)
 
-Flowdesk does not change Qt or PySide6. A native package that bundles Qt must
+CytoDesk does not change Qt or PySide6. A native package that bundles Qt must
 be distributed with the applicable Qt/PySide6 license texts, attribution
 notices, and any corresponding-source or relinking information required by
 the selected Qt license. The exact package manifest and Qt modules must be
@@ -27,7 +27,7 @@ checked for every release build.
 
 ### DejaVu fonts bundled for raster export
 
-Flowdesk bundles the regular and bold DejaVu Sans TrueType fonts so PNG/JPEG
+CytoDesk bundles the regular and bold DejaVu Sans TrueType fonts so PNG/JPEG
 export does not depend on fonts installed by the operating system. The font
 files are distributed under the Bitstream Vera font license; the full license
 text is included beside the font assets at

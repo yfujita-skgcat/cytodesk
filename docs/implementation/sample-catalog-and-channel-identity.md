@@ -86,7 +86,7 @@ metadata, and a stable project ID. Never use the visible label as the only ident
   names, `ChannelSpec.short_name` preserves exact `$PnS`, which FCS 3.1 defines
   as the optional long display name and does not require to be unique.
 - `detector` comes only from explicit `$PnT`, `unit` from explicit `$PnU`, and
-  `stain` only from an explicit vendor `PnSTAIN` value. Flowdesk does not infer
+  `stain` only from an explicit vendor `PnSTAIN` value. CytoDesk does not infer
   detector or stain from `$PnN` or `$PnS`.
 - The source-derived stable ID hashes exact `$PnN`, `$PnS`, detector, and stain
   values but excludes array index. Therefore a pure column permutation retains
