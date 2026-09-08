@@ -6,6 +6,11 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
+from flowdesk_core.derived_parameters import (
+  DerivedParameterPlanningError,
+  ExpressionError,
+  extract_parameter_references,
+)
 from flowdesk_core.gating_strategy import ordered_gates
 from flowdesk_core.models import GateSpec, GatingStrategySpec
 
@@ -233,32 +238,50 @@ def preflight_analysis_settings(
   """Return blocking channel diagnostics before applying settings."""
   validate_analysis_settings(settings)
   definition = settings["analysis_definition"]
-  parameter_ids = _definition_parameter_ids(definition)
-  derived_ids = {
-    item.get("id") for item in definition["derived_parameters"]
-    if isinstance(item, Mapping)
-  }
   sample_parameters: dict[str, set[str]] = {}
+  sample_parameter_counts: dict[str, dict[str, int]] = {}
   for sample in project.get("samples", []):
     if not isinstance(sample, Mapping):
       continue
     sample_id = str(sample.get("id", "unknown"))
-    sample_parameters[sample_id] = {
+    channel_ids = [
       str(channel.get("id"))
       for channel in sample.get("channels", [])
       if isinstance(channel, Mapping) and channel.get("id")
+    ]
+    sample_parameters[sample_id] = set(channel_ids)
+    sample_parameter_counts[sample_id] = {
+      parameter: channel_ids.count(parameter)
+      for parameter in set(channel_ids)
     }
-  referenced = _referenced_parameters(definition)
-  diagnostics: list[str] = []
+  required, contexts, diagnostics = _required_acquired_parameters(definition)
+  derived_output_ids = {
+    str(item.get("output_channel_id") or item.get("id"))
+    for item in definition["derived_parameters"]
+    if isinstance(item, Mapping)
+    and (item.get("output_channel_id") or item.get("id"))
+  }
   for sample_id, available in sample_parameters.items():
-    for parameter in sorted(referenced):
-      if (
-        parameter not in available
-        and parameter not in derived_ids
-        and parameter in parameter_ids
-      ):
+    for parameter, count in sorted(
+      sample_parameter_counts[sample_id].items()
+    ):
+      if count > 1:
         diagnostics.append(
-          f"sample {sample_id!r} is missing analysis parameter {parameter!r}"
+          f"sample {sample_id!r} has ambiguous analysis parameter "
+          f"{parameter!r} ({count} channel columns)"
+        )
+    for parameter in sorted(available & derived_output_ids):
+      diagnostics.append(
+        f"sample {sample_id!r} acquired channel {parameter!r} collides "
+        "with a derived output channel"
+      )
+    for parameter in sorted(required):
+      if parameter not in available:
+        context = contexts.get(parameter)
+        suffix = f" required by {context}" if context else ""
+        diagnostics.append(
+          f"sample {sample_id!r} is missing analysis parameter "
+          f"{parameter!r}{suffix}"
         )
   return diagnostics
 
@@ -291,8 +314,10 @@ def _validate_collection(definition: Mapping[str, Any], key: str) -> None:
 
 def _definition_parameter_ids(definition: Mapping[str, Any]) -> set[str]:
   parameters = {
-    str(item.get("id")) for item in definition["derived_parameters"]
-    if isinstance(item, Mapping) and item.get("id")
+    str(item.get("output_channel_id") or item.get("id"))
+    for item in definition["derived_parameters"]
+    if isinstance(item, Mapping)
+    and (item.get("output_channel_id") or item.get("id"))
   }
   parameters.update(
     str(item.get("parameter")) for item in definition["transforms"]
@@ -306,6 +331,103 @@ def _definition_parameter_ids(definition: Mapping[str, Any]) -> set[str]:
       if raw_gate.get(key)
     )
   return parameters
+
+
+def _required_acquired_parameters(
+  definition: Mapping[str, Any],
+) -> tuple[set[str], dict[str, str], list[str]]:
+  """Resolve all acquired channel IDs needed by an imported definition.
+
+  Settings are sample-independent, so only derived output IDs can be resolved
+  internally.  Every other leaf in the dependency graph must be present in
+  each target sample.  Derived expressions are parsed with the same safe
+  reference extractor used by the pipeline; this prevents an incomplete
+  ``input_parameters`` list from bypassing the preflight.
+  """
+  raw_definitions = [
+    item for item in definition["derived_parameters"]
+    if isinstance(item, Mapping)
+  ]
+  output_ids: dict[str, Mapping[str, Any]] = {}
+  output_id_counts: dict[str, int] = {}
+  for item in raw_definitions:
+    output_id = item.get("output_channel_id") or item.get("id")
+    if isinstance(output_id, str) and output_id:
+      output_id_counts[output_id] = output_id_counts.get(output_id, 0) + 1
+      output_ids[output_id] = item
+
+  known_expression_parameters = set(output_ids)
+  for item in raw_definitions:
+    known_expression_parameters.update(
+      str(parameter)
+      for parameter in item.get("input_parameters", ())
+      if parameter
+    )
+
+  dependencies: dict[str, set[str]] = {}
+  diagnostics: list[str] = []
+  diagnostics.extend(
+    f"derived output channel ID {output_id!r} is defined more than once"
+    for output_id, count in sorted(output_id_counts.items())
+    if count > 1
+  )
+  for item in raw_definitions:
+    output_id = item.get("output_channel_id") or item.get("id")
+    if not isinstance(output_id, str) or not output_id:
+      continue
+    inputs = {
+      str(parameter)
+      for parameter in item.get("input_parameters", ())
+      if parameter
+    }
+    expression = item.get("expression")
+    if isinstance(expression, str) and expression:
+      try:
+        inputs.update(extract_parameter_references(
+          expression, sorted(known_expression_parameters)
+        ))
+      except (DerivedParameterPlanningError, ExpressionError) as exc:
+        diagnostics.append(
+          f"derived parameter {item.get('id', output_id)!r} has an invalid "
+          f"dependency expression: {exc}"
+        )
+    dependencies[output_id] = inputs
+
+  required: set[str] = set()
+  contexts: dict[str, str] = {}
+  visiting: set[str] = set()
+  visited: set[str] = set()
+
+  def visit(parameter: str, context: str) -> None:
+    if parameter in visited:
+      return
+    if parameter in visiting:
+      diagnostics.append(
+        f"derived parameter dependency cycle includes {parameter!r}"
+      )
+      return
+    derived_inputs = dependencies.get(parameter)
+    if derived_inputs is None:
+      required.add(parameter)
+      contexts.setdefault(parameter, context)
+      return
+    visiting.add(parameter)
+    for dependency in sorted(derived_inputs):
+      visit(
+        dependency,
+        f"derived parameter {parameter!r}",
+      )
+    visiting.remove(parameter)
+    visited.add(parameter)
+
+  # The pipeline materializes every derived definition, even if no gate or
+  # statistic currently references its output.
+  for output_id in dependencies:
+    visit(output_id, f"derived parameter {output_id!r}")
+  for parameter in sorted(_referenced_parameters(definition)):
+    visit(parameter, "analysis definition")
+
+  return required, contexts, diagnostics
 
 
 def _referenced_parameters(definition: Mapping[str, Any]) -> set[str]:

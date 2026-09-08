@@ -1211,6 +1211,7 @@ incrementでは両者を一つの authoritative report から統合し、GUI・C
 - [x] `.flowdesk-settings` directory bundle用のversioned `AnalysisSettingsSpec`、schema、migration、atomic save/loadを追加する。通常の`.flowdesk` projectから同じspecを抽出できるようにする。
 - [x] gate hierarchy、analysis transforms、derived parameters、unbound compensation matrices、statistics、auto-gate templates、内部参照を含むplot viewsだけを保存対象にする。sample path/ID/fingerprint、raw events、execution report/cache、group membership、annotations、gate override、compensation binding/control assignment、export output path、UI session stateは保存しない。
 - [x] target sample catalogに対するchannel/parameterと内部IDのstrict preflightをcoreへ実装する。missing/ambiguous channel、invalid dependency、unknown gate/transform/statistic参照では一切変更しない。channel mappingやdefinition mergeは実装しない。
+- [x] derived output_channel_idとsafe expression依存を展開し、全target sampleのacquired入力不足を設定適用前にblocking diagnosticとして報告する。入力不足をPipeline後のall-NaN statisticへ遅延させない。
 - [x] importをreplace-onlyのdefinition commandとして実装する。targetのproject ID、sample catalog、FCS参照、fingerprint、target-only表示状態を維持し、成功時はResults/preview/cacheを破棄して`analysis_settings_loaded`でstale化する。Undo/Redoも同じstate境界を保つ。
 - [x] Fileメニューへ`Save Analysis Settings...`と`Load Analysis Settings...`を追加する。load dialogは`.flowdesk-settings`と`.flowdesk` projectを選択可能にし、置換対象・除外対象・互換性診断・Pipeline再実行要件を確認後に適用する。
 - [x] settings round-trip、project-source extraction、source Results非移植、target sample保持、失敗時atomicity、undo/redo、GUI/headless Pipeline一致、Windows/macOS/LinuxのUnicode/空白pathをtestする。

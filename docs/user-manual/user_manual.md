@@ -980,6 +980,11 @@ cache、sample group、annotation、sample-specific override、compensation bind
 `File > Load Analysis Settings...` では settings bundle または既存の `.flowdesk` project
 を選択できる。読み込み前に現在の sample の channel/parameter と定義内部の参照が検証
 され、missing または ambiguous channel がある場合は現在の project を変更せず中止する。
+derived parameter は `output_channel_id` を生成列のIDとして解決し、式の入力を依存関係
+として展開する。設定内の全 derived 定義、gate、transform、statistic が必要とする
+acquired channelを各 sample について検査するため、一部の sampleだけが入力を欠く場合も
+読み込みは中止され、sample ID、channel ID、依存する定義が診断に表示される。表示名が
+同じでもstable channel IDが異なる場合は自動推測しない。
 読み込みは定義の merge ではなく置換であり、現在の sample と FCS パスは維持される。
 
 読み込み成功後は source project の Results を使用せず、現在の Results と preview が
@@ -992,6 +997,10 @@ stale になる。`Run Pipeline` を実行してから Results の確認や expo
 Results → **Export Results...** を選び、Wide table または Long detail table、
 population metrics、custom statistics、internal ID、QC/status metadata を選択する。
 population metrics と custom statistics の少なくとも一方を選ぶ必要がある。
+derived statistic の値が全イベントで非有限、空population、または実行時エラーに
+なった場合、階層表の値は `-` になる。値セルのtooltip、または Results の
+`Statistics detail` viewで `Status` と `Reason`（`all_nan`、`empty_population` など）を
+確認できる。これは設定読込時のchannel不足とは別で、channel不足は読み込み前に停止する。
 TSV または CSV を選ぶ。Results が stale または未計算の場合は、Export の保存先と形式を確定した後に Pipeline が自動実行され、完了後にExportが継続される。Pipeline が失敗した場合は出力されない。
 
 Wide形式は1行を Sample × Population とし、Populationは `All Events/Live/GFP+`

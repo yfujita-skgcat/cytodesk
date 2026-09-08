@@ -124,6 +124,77 @@ def test_preflight_blocks_missing_target_channel() -> None:
   assert any("SSC-A" in message for message in diagnostics)
 
 
+def test_preflight_blocks_missing_derived_input_for_each_target_sample() -> None:
+  source = _project()
+  source["derived_parameters"] = [{
+    "id": "ratio-definition",
+    "name": "GFP per RFP",
+    "output_channel_id": "GFPperRFP",
+    "expression": "GFP / RFP",
+    "input_parameters": ["GFP", "RFP"],
+    "source_stage": "compensated",
+  }]
+  source["statistics"] = [{
+    "id": "gfpperrfp-mean",
+    "name": "GFPperRFP mean",
+    "metric": "mean",
+    "population_ids": ["all_events"],
+    "parameter_id": "GFPperRFP",
+  }]
+  settings = extract_analysis_settings(source)
+  target = _project()
+  target["samples"] = [{
+    "id": "sample-1",
+    "channels": [
+      {"id": "FSC-A", "name": "FSC-A"},
+      {"id": "SSC-A", "name": "SSC-A"},
+      {"id": "GFP", "name": "GFP"},
+    ],
+  }, {
+    "id": "sample-2",
+    "channels": [
+      {"id": "FSC-A", "name": "FSC-A"},
+      {"id": "SSC-A", "name": "SSC-A"},
+      {"id": "GFP", "name": "GFP"},
+      {"id": "RFP", "name": "RFP"},
+    ],
+  }]
+
+  diagnostics = preflight_analysis_settings(target, settings)
+
+  assert any("sample-1" in message and "RFP" in message for message in diagnostics)
+  assert not any("sample-2" in message and "RFP" in message for message in diagnostics)
+  assert not any(
+    "missing analysis parameter 'GFPperRFP'" in message
+    for message in diagnostics
+  )
+
+
+def test_analysis_settings_use_derived_output_channel_id_for_references() -> None:
+  source = _project()
+  source["samples"][0]["channels"].extend([
+    {"id": "GFP", "name": "GFP"},
+    {"id": "RFP", "name": "RFP"},
+  ])
+  source["derived_parameters"] = [{
+    "id": "ratio-definition",
+    "name": "GFP per RFP",
+    "output_channel_id": "GFPperRFP",
+    "expression": "GFP / RFP",
+    "input_parameters": ["GFP", "RFP"],
+    "source_stage": "compensated",
+  }]
+  source["gating_strategies_data"]["default_strategy"]["gates"][0][
+    "x_parameter"
+  ] = "GFPperRFP"
+
+  settings = extract_analysis_settings(source)
+
+  assert settings["analysis_definition"]["derived_parameters"][0][
+    "output_channel_id"
+  ] == "GFPperRFP"
+
+
 def test_replace_preserves_target_samples_and_drops_source_results() -> None:
   source = _project()
   source["gating_strategies_data"] = {

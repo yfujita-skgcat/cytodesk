@@ -78,6 +78,19 @@ Before changing the target, core code must:
    report missing/ambiguous channels; and
 5. construct and validate the full candidate target manifest.
 
+Channel preflight must resolve dependencies using the same stable identities as
+the pipeline.  A derived definition is identified by `output_channel_id` (or
+its legacy `id` when no output ID is stored), while `id` is the definition
+identity and must not be mistaken for the produced channel.  The preflight
+must recursively expand every derived definition that the pipeline will
+materialize, plus gate, transform, statistic, and plot references, and check
+the resulting acquired-channel leaves against every target sample.  It must
+also parse the expression with the safe derived-parameter reference resolver so
+an incomplete `input_parameters` list cannot hide an expression dependency.
+Missing leaves, invalid expressions, and dependency cycles are blocking
+diagnostics.  Diagnostics identify the target sample, missing stable channel
+ID, and the derived definition or analysis reference that requires it.
+
 Any validation error aborts the import without changing definitions, samples,
 Results, or the undo clean marker.  A successful import is one undoable
 definition-only project command.  It invalidates all result/cache revisions and
@@ -137,6 +150,9 @@ statistics, or channel mapping.
   emit pre-import result rows.
 - A post-import Pipeline run uses the core `PipelineRunner` and matches the
   equivalent headless execution.
+- Derived output IDs and recursive acquired-channel dependencies are checked
+  for every target sample before import; a missing input never degrades into a
+  per-sample all-NaN statistic after import.
 - Save/load work with Unicode and spaces in paths on Windows, macOS, and Linux;
   settings storage itself contains no platform-dependent sample path.
 
