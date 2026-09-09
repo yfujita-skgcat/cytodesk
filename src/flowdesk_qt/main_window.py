@@ -6464,6 +6464,21 @@ class MainWindow(QMainWindow):
 
         return tuple(options.items())
 
+    @staticmethod
+    def _normalize_results_export_path(
+        path_str: str, selected_filter: str
+    ) -> tuple[str, str]:
+        """Add the format suffix when the Results filename has none."""
+        path = Path(path_str)
+        if not path.suffix:
+            suffix = ".csv" if selected_filter.startswith("CSV") else ".tsv"
+            path = path.with_suffix(suffix)
+        delimiter = "," if (
+            selected_filter.startswith("CSV")
+            or path.suffix.lower() == ".csv"
+        ) else "\t"
+        return str(path), delimiter
+
     def _on_export_results(self) -> None:
         """Export Results, rerunning the pipeline when the report is stale."""
         report = self._last_result_report or self._population_tree.last_report()
@@ -6494,9 +6509,8 @@ class MainWindow(QMainWindow):
             )
             if not path_str:
                 return
-            delimiter = (
-                "," if selected_filter.startswith("CSV") or path_str.endswith(".csv")
-                else "\t"
+            path_str, delimiter = self._normalize_results_export_path(
+                path_str, selected_filter
             )
         pipeline_running = self._worker is not None and self._worker.isRunning()
         needs_pipeline = (

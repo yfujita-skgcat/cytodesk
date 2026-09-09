@@ -241,7 +241,7 @@ Undo/Redo は操作可能な履歴がないと disabled になる。Gate history
 |項目|説明|
 |---|---|
 |Edit Statistic...|統計定義を作成・編集する。初期 population は All Events。|
-|Export Results...|population metrics と custom statistics を wide/long TSV/CSV に書き出す。Populations欄でAll Eventsや任意のgate階層をチェックして出力対象を絞り込める。DestinationでFileまたはClipboard (TSV)を選べる。Clipboardを選ぶとタブ区切りの表をシステムクリップボードへコピーし、ExcelやGoogle Sheetsへそのまま貼り付けられる。Results が stale または未計算の場合も、現在のgate hierarchyと統計targetからPopulations候補を表示する。選択した保存先・形式・Populationを保持したままPipelineを自動実行し、完了後に最新結果を出力する。Pipeline が失敗した場合は出力しない。|
+|Export Results...|population metrics と custom statistics を wide/long TSV/CSV に書き出す。Populations欄でAll Eventsや任意のgate階層をチェックして出力対象を絞り込める。DestinationでFileまたはClipboard (TSV)を選べる。Clipboardを選ぶとタブ区切りの表をシステムクリップボードへコピーし、ExcelやGoogle Sheetsへそのまま貼り付けられる。保存先ファイル名に拡張子がない場合、TSV選択時は`.tsv`、CSV選択時は`.csv`を自動追加する。Results が stale または未計算の場合も、現在のgate hierarchyと統計targetからPopulations候補を表示する。選択した保存先・形式・Populationを保持したままPipelineを自動実行し、完了後に最新結果を出力する。Pipeline が失敗した場合は出力しない。|
 |Batch Plot Export...|Batch Plot Export定義を作成・編集・選択し、保存または指定output directoryへbatch exportする。|
 
 ### 5.5 Data

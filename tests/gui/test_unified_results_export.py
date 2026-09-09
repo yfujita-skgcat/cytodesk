@@ -49,6 +49,26 @@ def test_results_export_dialog_selects_population_ids(qapp) -> None:
     qapp.processEvents()
 
 
+def test_results_export_adds_format_suffix_when_filename_has_none(tmp_path) -> None:
+  tsv_path, tsv_delimiter = MainWindow._normalize_results_export_path(
+    str(tmp_path / "results"), "TSV files (*.tsv)"
+  )
+  assert tsv_path.endswith("results.tsv")
+  assert tsv_delimiter == "\t"
+
+  csv_path, csv_delimiter = MainWindow._normalize_results_export_path(
+    str(tmp_path / "results"), "CSV files (*.csv)"
+  )
+  assert csv_path.endswith("results.csv")
+  assert csv_delimiter == ","
+
+  explicit_path, explicit_delimiter = MainWindow._normalize_results_export_path(
+    str(tmp_path / "results.tsv"), "TSV files (*.tsv)"
+  )
+  assert explicit_path.endswith("results.tsv")
+  assert explicit_delimiter == "\t"
+
+
 def test_results_menu_has_only_unified_result_export(qapp) -> None:
   window = MainWindow()
   try:

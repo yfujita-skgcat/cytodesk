@@ -98,6 +98,8 @@ stable IDs and destination remain queued while the canonical Pipeline runs, and
 the completed report is filtered by those IDs before writing. A malformed
 hierarchy may leave only `All Events` visible, but the pipeline diagnostic must
 remain the authority and must prevent an export if execution fails.
+When a file destination has no suffix, the GUI adds `.tsv` for the TSV filter or
+`.csv` for the CSV filter before queuing the write; an explicit suffix is kept.
 
 `flowdesk run project.flowdesk --output results.tsv` is the standard unified
 wide export. Add `--layout wide|long`, `--include-internal-ids`, and
