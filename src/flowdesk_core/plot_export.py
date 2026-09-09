@@ -319,6 +319,9 @@ def prepare_display_export(
   }
   overrides = source_style_overrides or {}
   manual_colors = manual_overlay_colors or {}
+  default_marker_size = float(
+    effective_presentation.get("single_dot_size") or 1.5
+  )
   ordered_sources = sorted(
     (dict(source) for source in sources),
     key=lambda value: (int(value.get("order", 0)), str(value.get("source_id", ""))),
@@ -335,9 +338,7 @@ def prepare_display_export(
       style["color"] = str(explicit_color)
     if source_id == active_source_id:
       style["color"] = str(effective_presentation.get("single_color") or "#000000")
-      style["marker_size"] = float(
-        effective_presentation.get("single_dot_size") or 1.5
-      )
+      style["marker_size"] = default_marker_size
       style["alpha"] = 0.60
     manual_fields = set(style.get("manual_fields", ()))
     if not style.get("color"):
@@ -349,8 +350,16 @@ def prepare_display_export(
       style["alpha"] = 0.60
     if "marker_shape" not in manual_fields:
       style["marker_shape"] = "circle"
-    if "marker_size" not in manual_fields:
-      style["marker_size"] = 1.5
+    # The active source is the current GUI layer.  Its marker size is an
+    # explicit view-level value (``single_dot_size``), even when no
+    # per-source ``manual_fields`` entry exists.  Do not replace it with the
+    # historical 1.5 px fallback: doing so made current-view exports render
+    # smaller dots than the live Qt plot.  Non-active overlay sources still
+    # use the source-style/manual-field precedence below.
+    if "marker_size" not in manual_fields and source_id != active_source_id:
+      # Qt applies the global dot size to overlay layers unless a source has
+      # an explicit marker-size override.  Keep that same fallback here.
+      style["marker_size"] = default_marker_size
     style_by_id[source_id] = style
   effective_presentation["source_styles"] = list(style_by_id.values())
   scene_value = dict(scene or {})
@@ -1172,22 +1181,21 @@ def _svg_scene_axes(
         f'<path d="{tick_path}" fill="none" stroke="{axis_color}" '
         f'stroke-width="{selected.axis_line_width:g}"/>'
       )
-      if major:
-        label = _display_tick_label(str(tick.get("label", "")))
-        if not label:
-          continue
-        if horizontal:
-          elements.append(
-            f'<text x="{x:g}" y="{layout.x_tick_label_y:g}" '
-            f'text-anchor="middle" fill="{axis_color}" '
-            f'font-size="{_font_px(selected.tick_font.size):g}">{escape(label)}</text>'
-          )
-        else:
-          elements.append(
-            f'<text x="{layout.y_tick_label_x:g}" y="{y + _font_px(selected.tick_font.size) * 0.35:g}" '
-            f'text-anchor="end" fill="{axis_color}" '
-            f'font-size="{_font_px(selected.tick_font.size):g}">{escape(label)}</text>'
-          )
+      label = _display_tick_label(str(tick.get("label", "")))
+      if not label or not _tick_label_is_visible(tick):
+        continue
+      if horizontal:
+        elements.append(
+          f'<text x="{x:g}" y="{layout.x_tick_label_y:g}" '
+          f'text-anchor="middle" fill="{axis_color}" '
+          f'font-size="{_font_px(selected.tick_font.size):g}">{escape(label)}</text>'
+        )
+      else:
+        elements.append(
+          f'<text x="{layout.y_tick_label_x:g}" y="{y + _font_px(selected.tick_font.size) * 0.35:g}" '
+          f'text-anchor="end" fill="{axis_color}" '
+          f'font-size="{_font_px(selected.tick_font.size):g}">{escape(label)}</text>'
+        )
   if selected.x_axis_display_label:
     elements.append(
       f'<text x="{layout.x_axis_label_anchor[0]:g}" y="{layout.x_axis_label_anchor[1]:g}" '
@@ -1621,10 +1629,12 @@ def _draw_raster_text(
     ):
       ticks = scene.get(axis, ()) if isinstance(scene, dict) else ()
       for tick in ticks:
-        if not isinstance(tick, dict) or not tick.get("major", True):
+        if not isinstance(tick, dict):
           continue
+        # A labelled minor tick level is visible in pyqtgraph too.  ``major``
+        # controls line emphasis, not whether a non-empty label is rendered.
         label = _display_tick_label(str(tick.get("label", "")))
-        if not label:
+        if not label or not _tick_label_is_visible(tick):
           continue
         position = min(1.0, max(0.0, float(tick.get("position", 0.0))))
         if horizontal:
@@ -1703,6 +1713,16 @@ def _display_tick_label(label: str) -> str:
   if float(mantissa) == 1.0:
     return f"10{superscript}"
   return f"{mantissa} × 10{superscript}"
+
+
+def _tick_label_is_visible(tick: Mapping[str, Any]) -> bool:
+  """Resolve captured tick-label visibility without changing old scenes."""
+  if "label_visible" in tick:
+    return bool(tick.get("label_visible"))
+  # Older Batch scenes only marked major/minor.  Preserve their historical
+  # major-only text policy while allowing new GUI snapshots to opt into the
+  # minor labels that pyqtgraph actually painted.
+  return bool(tick.get("major", True))
 
 
 def _pdf_scene_axes(
@@ -1788,10 +1808,12 @@ def _pdf_scene_text(
   if options is None or options.include_ticks:
     for axis, horizontal in (("x_ticks", True), ("y_ticks", False)):
       for tick in scene.get(axis, ()):
-        if not isinstance(tick, dict) or not tick.get("major", True):
+        if not isinstance(tick, dict):
           continue
+        # Keep the renderer-neutral scientific form here; the PDF helper
+        # emits the exponent with its own portable text commands.
         label = str(tick.get("label", ""))
-        if not label:
+        if not label or not _tick_label_is_visible(tick):
           continue
         position = min(1.0, max(0.0, float(tick.get("position", 0.0))))
         size = _font_px(selected.tick_font.size)

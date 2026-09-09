@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from flowdesk_cli.batch_plot import _write_render_payload
 from flowdesk_core.models import BatchPlotExportSpec
 from flowdesk_core.plot_export import prepare_display_export, write_plot_png
 from flowdesk_core.plot_presentation import OverlaySourceResolution
@@ -278,6 +279,206 @@ def test_live_gui_and_core_export_resolve_the_same_layout(qapp, tmp_path) -> Non
   assert normalized_rmse < 0.22
 
 
+def test_gui_snapshot_matches_dpi_scaled_batch_at_logical_size(qapp, tmp_path) -> None:
+  """Compare the real batch writer at 300 DPI in the GUI's logical canvas.
+
+  A DPI-scaled PNG intentionally has more raster pixels than the on-screen
+  canvas.  Comparing it at the image-viewer's fit-to-window zoom makes dots and
+  fonts appear smaller.  The scientific/display contract is the logical
+  canvas, so the batch image is downsampled to that canvas before comparison.
+  """
+  widget = PlotWidget()
+  try:
+    widget.resize(400, 300)
+    widget.show()
+    x_values = np.linspace(1.0, 10.0, 120)
+    y_values = 2.0 + x_values * 1.7
+    widget.plot_events(x_values, y_values, x_label="APC-A", y_label="FITC-A")
+    widget.set_manual_view_range((1.0, 10.0), (2.0, 20.0))
+    widget.set_presentation({
+      "title_mode": "current_sample", "title": "Parity sample",
+      "x_axis_display_label": "APC-A", "y_axis_display_label": "FITC-A",
+    })
+    qapp.processEvents()
+    gui_path = tmp_path / "gui-logical.png"
+    assert widget._glw.grab().save(str(gui_path))
+    width, height = widget.canvas_size()
+    margins = widget.plot_area_margins()
+    ticks = widget.scene_ticks()
+    axis_anchors = widget.axis_label_anchors()
+    scene = PlotScene.from_mapping({
+      "plot_area": margins,
+      "view_range": [[1.0, 10.0], [2.0, 20.0]],
+      "x_ticks": ticks.get("x_ticks", []), "y_ticks": ticks.get("y_ticks", []),
+      "title_lines": ["Parity sample"],
+      "title_colors": ["#000000"],
+      "x_axis_label": "APC-A", "y_axis_label": "FITC-A",
+      "y_axis_label_anchor": axis_anchors.get("y_axis_label_anchor"),
+      "axis_label_canvas_size": [width, height],
+      "source_order": ["s1"], "source_draw_order": ["s1"],
+    })
+    prepared = prepare_display_export(
+      "main-view", "scatter",
+      ({"source_id": "s1", "display_name": "Parity sample", "visible": True,
+        "order": 0},),
+      (OverlaySourceResolution("s1", "compatible", 0),),
+      presentation={
+        "title_mode": "current_sample", "title": "Parity sample",
+        "single_color": "#000000", "x_axis_display_label": "APC-A",
+        "y_axis_display_label": "FITC-A",
+      },
+      active_source_id="s1", scene=scene.to_mapping(),
+    )
+  finally:
+    widget.close()
+    widget.deleteLater()
+
+  batch_path = tmp_path / "batch-300dpi.png"
+  options = BatchPlotExportSpec(
+    id="batch-parity", name="Batch parity", width=width, height=height,
+    dpi=300, raster_resolution_mode="dpi_scaled", include_title=True,
+    include_axis_labels=True, include_ticks=True,
+  )
+  _write_render_payload(
+    batch_path, prepared,
+    {"s1": (tuple(((x_values - 1.0) / 9.0).tolist()),
+             tuple(((y_values - 2.0) / 18.0).tolist()))},
+    {}, options,
+  )
+  with Image.open(gui_path) as gui_image, Image.open(batch_path) as batch_image:
+    assert batch_image.size == (round(width * 300 / 96), round(height * 300 / 96))
+    normalized_batch = batch_image.convert("RGB").resize(
+      gui_image.size, Image.Resampling.LANCZOS,
+    )
+    gui_pixels = np.asarray(gui_image.convert("RGB"), dtype=np.float64)
+    batch_pixels = np.asarray(normalized_batch, dtype=np.float64)
+  normalized_rmse = float(
+    np.sqrt(np.mean(np.square(gui_pixels - batch_pixels))) / 255.0
+  )
+  assert normalized_rmse < 0.22
+  metadata = json.loads(batch_path.with_suffix(".png.json").read_text())
+  assert metadata["export_canvas"]["logical_width"] == width
+  assert metadata["export_canvas"]["logical_height"] == height
+  assert metadata["export_canvas"]["raster_width"] == round(width * 300 / 96)
+  assert metadata["plot_layout"]["y_axis_label_anchor"] == [
+    pytest.approx(axis_anchors["y_axis_label_anchor"][0]),
+    pytest.approx(axis_anchors["y_axis_label_anchor"][1]),
+  ]
+
+
+def test_current_view_export_preserves_gui_marker_size_and_color(qapp, tmp_path) -> None:
+  """The shared export payload must retain the live Qt point presentation."""
+  widget = PlotWidget()
+  try:
+    widget.resize(400, 300)
+    widget.show()
+    x_value, y_value = 0.37, 0.63
+    widget.plot_events(
+      np.array([x_value]), np.array([y_value]), x_label="X", y_label="Y",
+    )
+    widget.set_manual_view_range((0.0, 1.0), (0.0, 1.0))
+    widget.set_presentation({
+      "single_color": "#ff0000", "single_dot_size": 4.0,
+      "show_grid": False, "title": "",
+      "x_axis_display_label": "", "y_axis_display_label": "",
+    })
+    qapp.processEvents()
+    gui_path = tmp_path / "gui-dot.png"
+    assert widget._glw.grab().save(str(gui_path))
+    width, height = widget.canvas_size()
+    margins = widget.plot_area_margins()
+    scene = PlotScene.from_mapping({
+      "plot_area": margins,
+      "view_range": [[0.0, 1.0], [0.0, 1.0]],
+      "title_lines": [], "x_axis_label": "", "y_axis_label": "",
+      "source_order": ["s1"], "source_draw_order": ["s1"],
+    })
+    prepared = prepare_display_export(
+      "dot-view", "scatter",
+      ({"source_id": "s1", "display_name": "S", "visible": True, "order": 0},),
+      (OverlaySourceResolution("s1", "compatible", 0),),
+      presentation={
+        "single_color": "#ff0000", "single_dot_size": 4.0,
+        "background_color": "#ffffff", "show_grid": False,
+      },
+      active_source_id="s1", scene=scene.to_mapping(),
+    )
+    style = prepared.resolved_presentation.presentation.source_styles[0]
+    assert style.marker_size == pytest.approx(4.0)
+    assert style.color == "#ff0000"
+    assert style.alpha == pytest.approx(0.60)
+    overlay_prepared = prepare_display_export(
+      "dot-overlay", "scatter",
+      (
+        {"source_id": "s1", "display_name": "S", "visible": True, "order": 0},
+        {"source_id": "s2", "display_name": "Overlay", "visible": True, "order": 1},
+      ),
+      (
+        OverlaySourceResolution("s1", "compatible", 0),
+        OverlaySourceResolution("s2", "compatible", 1),
+      ),
+      presentation={
+        "single_color": "#ff0000", "single_dot_size": 4.0,
+        "source_styles": [{
+          "source_id": "s2", "color": "#00ff00", "marker_size": 7.0,
+          "manual_fields": ["marker_size"],
+        }],
+      },
+      active_source_id="s1",
+    )
+    overlay_styles = {
+      item.source_id: item
+      for item in overlay_prepared.resolved_presentation.presentation.source_styles
+    }
+    assert overlay_styles["s1"].marker_size == pytest.approx(4.0)
+    assert overlay_styles["s2"].marker_size == pytest.approx(7.0)
+    assert overlay_styles["s2"].color == "#00ff00"
+  finally:
+    widget.close()
+    widget.deleteLater()
+
+  export_path = tmp_path / "export-dot.png"
+  _write_render_payload(
+    export_path, prepared,
+    {"s1": ((x_value,), (y_value,))}, {},
+    BatchPlotExportSpec(
+      id="dot-parity", name="Dot parity", width=width, height=height,
+      include_title=False, include_axis_labels=False, include_ticks=False,
+      include_gates=False, include_legend=False,
+    ),
+  )
+
+  def dot_bbox(path):
+    with Image.open(path) as image:
+      pixels = np.asarray(image.convert("RGB"))
+    left, top, right, bottom = margins
+    plot_width = width - left - right
+    plot_height = height - top - bottom
+    center_x = round(left + x_value * plot_width)
+    center_y = round(top + (1.0 - y_value) * plot_height)
+    yy, xx = np.indices(pixels.shape[:2])
+    local = (
+      (xx >= center_x - 10) & (xx <= center_x + 10)
+      & (yy >= center_y - 10) & (yy <= center_y + 10)
+      & (pixels[:, :, 0] > 200)
+      & (pixels[:, :, 1] < 200)
+      & (pixels[:, :, 2] < 200)
+    )
+    ys, xs = np.where(local)
+    assert len(xs) > 0
+    return xs.min(), ys.min(), xs.max(), ys.max(), pixels
+
+  gui_x0, gui_y0, gui_x1, gui_y1, gui_pixels = dot_bbox(gui_path)
+  export_x0, export_y0, export_x1, export_y1, export_pixels = dot_bbox(export_path)
+  assert (gui_x1 - gui_x0) == pytest.approx(export_x1 - export_x0, abs=1)
+  assert (gui_y1 - gui_y0) == pytest.approx(export_y1 - export_y0, abs=1)
+  gui_center = gui_pixels[(gui_y0 + gui_y1) // 2, (gui_x0 + gui_x1) // 2]
+  export_center = export_pixels[(export_y0 + export_y1) // 2, (export_x0 + export_x1) // 2]
+  # Both renderers source-over the same #ff0000 at alpha .60.  A few levels
+  # of antialiasing variation are acceptable at the footprint edge.
+  assert np.max(np.abs(gui_center.astype(int) - export_center.astype(int))) <= 12
+
+
 def test_plot_widget_uses_the_presentation_axis_label_font(qapp) -> None:
   widget = PlotWidget()
   try:
@@ -443,4 +644,6 @@ def test_qt_batch_dpi_changes_sharpness_without_changing_layout(qapp, tmp_path) 
     low = np.asarray(low_image.convert("RGB"), dtype=np.float64)
     high = np.asarray(normalized_high, dtype=np.float64)
   normalized_rmse = float(np.sqrt(np.mean(np.square(low - high))) / 255.0)
-  assert normalized_rmse < 0.05
+  # Text now includes the same readable minor labels as the live axis; the
+  # additional glyph edges add a small, deterministic resampling difference.
+  assert normalized_rmse < 0.055

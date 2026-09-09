@@ -32,6 +32,11 @@ class PlotScene:
   title_colors: tuple[str, ...] = ()
   x_axis_label: str = ""
   y_axis_label: str = ""
+  # The live Qt plot can measure the centre of the rotated Y label more
+  # accurately than a renderer-neutral font estimate.  Keep this optional so
+  # old Batch scenes continue to use the deterministic fallback geometry.
+  y_axis_label_anchor: tuple[float, float] | None = None
+  axis_label_canvas_size: tuple[float, float] | None = None
   source_order: tuple[str, ...] = ()
   source_draw_order: tuple[str, ...] = ()
   gates: tuple[dict[str, Any], ...] = ()
@@ -56,6 +61,19 @@ class PlotScene:
       raise ValueError("plot scene plot area must contain four non-negative margins")
     if self.title_baseline_y is not None and not isfinite(float(self.title_baseline_y)):
       raise ValueError("plot scene title baseline must be finite")
+    for name, anchor in (("Y axis label", self.y_axis_label_anchor),):
+      if anchor is not None and (
+        len(anchor) != 2 or any(not isfinite(float(value)) for value in anchor)
+      ):
+        raise ValueError(f"plot scene {name} anchor must contain finite coordinates")
+    if self.axis_label_canvas_size is not None and (
+      len(self.axis_label_canvas_size) != 2
+      or any(
+        not isfinite(float(value)) or float(value) <= 0
+        for value in self.axis_label_canvas_size
+      )
+    ):
+      raise ValueError("plot scene axis-label canvas size must be positive")
     if self.view_range is not None:
       if len(self.view_range) != 2 or any(len(axis) != 2 for axis in self.view_range):
         raise ValueError("plot scene view range must contain X and Y pairs")
@@ -102,6 +120,28 @@ class PlotScene:
       baseline = None
     if baseline is not None and not isfinite(baseline):
       baseline = None
+    raw_y_anchor = raw.get("y_axis_label_anchor")
+    try:
+      y_anchor = (
+        (float(raw_y_anchor[0]), float(raw_y_anchor[1]))
+        if raw_y_anchor is not None and len(raw_y_anchor) == 2 else None
+      )
+    except (TypeError, ValueError, OverflowError):
+      y_anchor = None
+    if y_anchor is not None and any(not isfinite(value) for value in y_anchor):
+      y_anchor = None
+    raw_anchor_canvas = raw.get("axis_label_canvas_size")
+    try:
+      anchor_canvas = (
+        (float(raw_anchor_canvas[0]), float(raw_anchor_canvas[1]))
+        if raw_anchor_canvas is not None and len(raw_anchor_canvas) == 2 else None
+      )
+    except (TypeError, ValueError, OverflowError):
+      anchor_canvas = None
+    if anchor_canvas is not None and (
+      any(not isfinite(value) or value <= 0 for value in anchor_canvas)
+    ):
+      anchor_canvas = None
     return cls(
       x_parameter=str(raw.get("x_parameter", "")),
       y_parameter=None if raw.get("y_parameter") is None else str(raw["y_parameter"]),
@@ -117,6 +157,8 @@ class PlotScene:
       title_colors=tuple(str(item) for item in raw.get("title_colors", ())),
       x_axis_label=str(raw.get("x_axis_label", "")),
       y_axis_label=str(raw.get("y_axis_label", "")),
+      y_axis_label_anchor=y_anchor,
+      axis_label_canvas_size=anchor_canvas,
       source_order=tuple(str(item) for item in raw.get("source_order", ())),
       source_draw_order=tuple(str(item) for item in raw.get("source_draw_order", ())),
       gates=tuple(dict(gate) for gate in raw.get("gates", ()) if isinstance(gate, Mapping)),
@@ -142,6 +184,14 @@ class PlotScene:
       "title_colors": list(self.title_colors),
       "x_axis_label": self.x_axis_label,
       "y_axis_label": self.y_axis_label,
+      "y_axis_label_anchor": (
+        None if self.y_axis_label_anchor is None
+        else list(self.y_axis_label_anchor)
+      ),
+      "axis_label_canvas_size": (
+        None if self.axis_label_canvas_size is None
+        else list(self.axis_label_canvas_size)
+      ),
       "source_order": list(self.source_order),
       "source_draw_order": list(self.source_draw_order),
       "gates": [dict(gate) for gate in self.gates],
@@ -298,9 +348,18 @@ def resolve_plot_layout(
   y_axis_label_anchor = (
     # Major tick labels can be several characters wide (e.g. ``10⁷``).
     # Reserve a separate column so the rotated axis label cannot overlap them.
-    left - tick_size * 5.5,
+    # The lower bound is important for narrow canvases: a rotated glyph has
+    # non-zero width, so an anchor at x=0 would clip the left half of it.
+    max(left - tick_size * 5.5, axis_size * 0.75 + 8.0),
     top + plot_height / 2.0,
   )
+  if (
+    scene.y_axis_label_anchor is not None
+    and scene.axis_label_canvas_size is not None
+    and abs(float(scene.axis_label_canvas_size[0]) - float(width)) < 1e-6
+    and abs(float(scene.axis_label_canvas_size[1]) - float(height)) < 1e-6
+  ):
+    y_axis_label_anchor = scene.y_axis_label_anchor
   return PlotLayoutSpec(
     canvas_width=int(width), canvas_height=int(height),
     margins=(left, top, right, bottom),

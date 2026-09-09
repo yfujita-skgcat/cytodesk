@@ -1,6 +1,6 @@
 # Current-view Export / Batch Export parity repair
 
-### Implementation status (2026-08-04)
+### Implementation status (2026-09-09)
 
 Increments 3 and 4 are implemented. The current-view adapter now snapshots
 source IDs keyed to rendered layers, semantic title order separately from
@@ -16,9 +16,74 @@ source-ID keyed layers. `render_batch_plot_qt()` remains as a compatibility
 wrapper for existing tests/callers that provide raw Qt-shaped arguments; it is
 not used by the current-view path. Removing that wrapper is intentionally left
 as a separate API cleanup so Batch output and downstream callers are not
-silently changed. Increment 6 still needs an automated GUI screenshot
-comparison; the current tests cover payload structure, writer ordering, gate
-normalization, and real-data output.
+silently changed. The GUI snapshot and DPI-scaled Batch writer are now compared
+at the shared logical (96-DPI) canvas in
+`tests/gui/test_qt_plot_export.py::test_gui_snapshot_matches_dpi_scaled_batch_at_logical_size`.
+The test asserts the physical raster dimensions, sidecar logical canvas, layout
+contract, and normalized image RMSE. The remaining Increment 6 work is the
+broader three-way (current-view, right-click, Batch) fixture and scene-hash
+comparison.
+
+### DPI-scaled screenshot diagnosis (2026-09-08)
+
+The reported screenshot was comparing a GUI canvas at 100% with a PNG whose
+`raster_resolution_mode` was `dpi_scaled` (for example, 300 DPI). Such a PNG is
+`round(logical_width * 300 / 96)` by `round(logical_height * 300 / 96)` pixels.
+The image viewer fitted that larger raster to about 23%, so a dot or font was
+visually compared after an additional viewer resampling and appeared smaller
+relative to the GUI. This is not a change to the event coordinates or plot
+range. The canonical comparison is the PNG downsampled to the sidecar's
+`export_canvas.logical_width`/`logical_height` (or the GUI canvas captured by
+`PlotWidget.canvas_size()`).
+
+One genuine style-path discrepancy was also removed: manual/advanced overlay
+layers now pass their per-source marker size to pyqtgraph, and the GUI overlay
+default alpha is 0.60, matching the core Batch presentation contract. Batch
+output remains on the core Pillow/SVG/PDF writer; no Qt screenshot is used as
+the published export.
+
+### Y-axis clipping and tick-label parity (2026-09-09)
+
+The screenshot comparison exposed two additional layout discrepancies. The
+renderer-neutral fallback placed the rotated Y-label anchor at
+`left - tick_font * 5.5`; on a narrow canvas the glyph's non-zero width could
+therefore extend past column zero and be clipped. Current-view scenes now carry
+the measured centre of the live Qt Y-label together with the logical canvas
+size. The core layout uses that measurement when the export canvas is the same
+size, and otherwise uses a conservative font-based clearance. Older Batch
+scenes remain valid and use the safe fallback.
+
+The second discrepancy was tick text, not data coordinates. Pyqtgraph keeps
+all levels for grid lines but hides crowded text levels. The Qt snapshot now
+records every tick for geometry while retaining labels only when
+`AxisItem.generateDrawSpecs()` says that label is visible. PNG/JPG/SVG/PDF
+writers render every non-empty captured label (the `major` flag still controls
+line weight), so labels such as `2, 3, 4, ...` are not silently reduced to
+`2, 4, 6, ...` or replaced by crowded subminor labels.
+
+Acceptance is an actual offscreen Qt widget capture compared with a 300-DPI
+Batch PNG after downsampling to the same logical canvas. The regression test
+uses realistic `APC-A`/`FITC-A` labels, checks the captured Y-label anchor and
+sidecar layout, and requires bounded normalized RMSE. A generated comparison
+artifact is written under `/tmp/cytodesk-parity-check/side-by-side.png` during
+manual verification; pixel-level anti-aliasing differences remain expected.
+
+### Marker size and colour parity (2026-09-09)
+
+The live Qt scatter uses `PlotPresentation.single_dot_size`, `single_color`, and
+the default alpha (`0.60`) for the active layer. Overlay layers use the same
+global dot size unless a source explicitly supplies a marker-size override. The
+current-view adapter must therefore pass the resolved global size through
+`prepare_display_export()` for every source. A previous fallback unconditionally
+replaced the active source size (and overlay global fallback) with `1.5 px`, so
+the exported dots were smaller even though the source colour was correct.
+
+The preparation service now preserves the active/global marker size and keeps the
+same `#RRGGBB` colour and alpha contract. A Qt screenshot/core PNG regression
+test measures the marker footprint and representative blended colour; a small
+edge difference from Qt/Pillow antialiasing is allowed, but a size change larger
+than one logical pixel fails. Batch definitions with an explicit per-source
+`marker_size` remain authoritative and are not overwritten.
 
 ### Batch overlay order correction (2026-08-04)
 

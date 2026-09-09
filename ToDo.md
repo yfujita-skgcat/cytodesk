@@ -824,6 +824,9 @@ increment一つだけを実装する。
 - [x] Parity Increment 4: current-view snapshotをBatchと同じcore preparation/payload/dispatcherへ渡す。source ID keyed layer、source_draw_order、live tick、gate normalizationを検証し、positional layer zipによる色・タイトルの取り違えを除去した。
 - [x] Parity Increment 5 (user-facing path): current-view の PNG/JPEG/SVG/PDF は `render_prepared_plot_qt()` の typed `PreparedPlotExport` dispatcherへ移行した。旧 `render_batch_plot_qt()` は既存テスト・互換呼び出しのため残しているため、完全削除は別の非互換変更として扱う。Qt screenshot/grabは出力経路で使用しない。
 - [ ] Parity Increment 6: 同一定義のGUI screenshot、右クリックExport、Batch Exportを比較し、title text/order/color、semantic/draw order、axis labels/bounds、Log10 ticks、gate geometry/style、view range、plot rect、96/300-DPI正規化画像が一致することを確認する。raw events、membership、count/frequency/statistics/revisionが不変であることも検証する。現時点ではsidecar、実データPNG、core/GUI回帰テストまで確認済みで、実GUI screenshotの自動比較を追加する。
+- [x] Batch/GUIのDPI比較検証を追加した。300 DPIのBatch PNGをGUIの論理canvasへ縮小してsnapshotと比較し、sidecarのlogical/raster canvasとlayout契約を検証する。overlayのmarker size/alphaもGUIとcoreのpresentation契約へ揃えた。current-view・right-click・Batchを同一fixtureで比較する三者検証は残作業とする。
+- [x] current-view exportでactive/global `single_dot_size`が既定1.5 pxへ上書きされる不具合を修正した。GUI snapshotとcore PNGの点径・色・alphaを実測する回帰testを追加し、sourceごとの明示marker sizeは維持する。
+- [x] 実ウィジェットsnapshotとBatch PNGを`APC-A`/`FITC-A`で比較し、Y軸ラベルの安全なanchor、Qtで実際に表示されるtick label、論理canvasへ縮小したRMSEを検証した。狭いcanvasではglyphが左端で切れないfallback clearanceを使う。
 - [x] 同一`PlotScene`のGUI/export visual-equivalence testを追加し、geometry/style/fontの差を測定・制限する。backend差によるpixel完全一致は同一backend利用時だけの保証とし、cross-platformではscene一致と明示的toleranceを受け入れ条件にする。詳細は`docs/implementation/plot-export-completion.md` Increment 10。
 - [ ] GUIから実行するBatch Plot ExportをQt/pyqtgraph `PlotWidget` adapterへ切り替える案は採用しない。GUI batchはQt非依存core rendererを使用し、GUI previewとheadless exportはcanonical scene/layoutを共有する。物理backendのpixel一致は保証せず、layout/style/geometry parityを検証する。
 - [x] Batch Plot Exportで出力サイズや1:1設定がGUIの現在ViewBox範囲を上書きしないようにし、population display colorとoverlay source colorをGUIと同じ表示レイヤーへ反映する。
@@ -1192,6 +1195,7 @@ incrementでは両者を一つの authoritative report から統合し、GUI・C
 
 - [x] GUIのResults exportが1項目だけになり、Population full pathとcustom statisticsが同一ファイルに出力される。
 - [x] GUIとCLIが同一core export implementationを使用し、stale resultsを出力しない。
+- [x] Resultsがstaleまたは未計算でも、Export Resultsダイアログに現在のgate hierarchyと統計targetからPopulation候補を表示し、選択を保持したままPipeline完了後に出力する。
 - [x] schema、manifest、core API、commands、GUI、CLIのいずれからもASCII `/`付きgate名を保存できない。
 - [x] 正式チェックを完了する。`.direnv`環境の全pytest（1009 passed）、GUIテスト（222 passed）、`ruff check src tests`、`make type-check`（core/storage/CLI 52ファイル）が通過済み。`pyenv exec pytest`と`pyenv exec mypy src`は、pyenv環境にプロジェクトの任意依存（NumPy/PySide6/flowio）が未導入のため、`.direnv`のsite-packagesを`PYTHONPATH`へ指定して同じ検証を実行した。Qtを含む`mypy src`全体は、既存Qtコードの未注釈箇所を含むため正式対象外とし、Makefileの型チェック対象を完了条件とする。
 

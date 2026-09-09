@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtCore import Qt
 
+from flowdesk_core.models import GateSpec
 from flowdesk_qt.main_window import MainWindow
 from flowdesk_qt.results_export_dialog import ResultsExportDialog, ResultsExportOptions
 
@@ -74,11 +75,24 @@ def test_stale_results_export_queues_export_and_runs_pipeline(qapp, monkeypatch,
   try:
     window._sample_data = {"sample-1": object()}
     window._results_stale = True
+    window._gate_editor.set_gates([
+      GateSpec(
+        id="gate_live",
+        name="Live",
+        gate_type="rectangle",
+        x_parameter="x",
+        y_parameter="y",
+        thresholds={"x_min": 0, "x_max": 1, "y_min": 0, "y_max": 1},
+      )
+    ], notify=False)
     pipeline_calls: list[bool] = []
+    dialog_options: list[tuple[tuple[str, str], ...]] = []
 
     class FakeExportDialog:
       def __init__(self, parent, *args) -> None:
         self.parent = parent
+        self.population_options = args[0] if args else ()
+        dialog_options.append(self.population_options)
 
       def exec(self) -> int:
         return 1
@@ -103,6 +117,10 @@ def test_stale_results_export_queues_export_and_runs_pipeline(qapp, monkeypatch,
     window._on_export_results()
 
     assert pipeline_calls == [True]
+    assert dialog_options == [(
+      ("all_events", "All Events"),
+      ("gate_live", "All Events/Live"),
+    )]
     assert window._pending_results_export is not None
     assert window._pending_results_export[1].endswith("results.tsv")
   finally:

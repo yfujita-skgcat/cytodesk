@@ -89,6 +89,16 @@ report is available. Pipeline or path-resolution failures must block writing
 with an understandable dialog. Population-only data must still export when
 zero custom statistics exist.
 
+The population checklist must not become empty in the stale/no-report state.
+Before a current report exists, the GUI builds its choices from the current
+gate hierarchy (with `All Events` first) and any persisted statistic population
+targets. These are definition-level display paths only; they must not be used
+to fabricate result values. After the user accepts the dialog, the selected
+stable IDs and destination remain queued while the canonical Pipeline runs, and
+the completed report is filtered by those IDs before writing. A malformed
+hierarchy may leave only `All Events` visible, but the pipeline diagnostic must
+remain the authority and must prevent an export if execution fails.
+
 `flowdesk run project.flowdesk --output results.tsv` is the standard unified
 wide export. Add `--layout wide|long`, `--include-internal-ids`, and
 `--include-qc` as needed. If `--statistics-output` remains, mark it deprecated

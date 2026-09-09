@@ -86,16 +86,17 @@ def test_prepared_overlay_layers_render_without_recomputing_membership() -> None
   layers = (
     Overlay2DLayer(
       "ancestor", np.array([1.0, 2.0]), np.array([2.0, 3.0]),
-      {"color": "blue", "alpha": 0.2},
+      {"color": "blue", "alpha": 0.2, "marker_size": 2.5},
     ),
     Overlay2DLayer(
       "target", np.array([1.5]), np.array([2.5]),
-      {"color": "red", "alpha": 1.0},
+      {"color": "red", "alpha": 1.0, "marker_size": 1.0},
     ),
   )
   plot.plot_overlay_layers(layers)
   assert len(plot._overlay_scatter_items) == 2
   assert [item.zValue() for item in plot._overlay_scatter_items] == [1.0, 2.0]
+  assert [item.opts["symbolSize"] for item in plot._overlay_scatter_items] == [2.5, 1.0]
   plot.plot_events(np.array([1.0]), np.array([2.0]))
   plot.set_base_layer_z(3.0)
   assert plot._scatter is not None and plot._scatter.zValue() == 3.0

@@ -132,6 +132,40 @@ def test_vertical_axis_label_keeps_the_complete_pillow_glyph_bbox() -> None:
   assert alpha_bbox[3] - alpha_bbox[1] >= source_alpha_bbox[2] - source_alpha_bbox[0] - 1
 
 
+def test_narrow_canvas_keeps_vertical_axis_label_inside_canvas(tmp_path) -> None:
+  """The shared layout must not place a rotated label partly off-canvas."""
+  prepared = prepare_plot_export(
+    "narrow", "scatter",
+    ({"source_id": "s1", "display_name": "Sample", "visible": True, "order": 0},),
+    (OverlaySourceResolution("s1", "compatible", 0),),
+    view_presentation={
+      "x_axis_display_label": "APC-A", "y_axis_display_label": "FITC-A",
+      "source_styles": [{"source_id": "s1", "color": "#000000"}],
+    },
+    scene={
+      "plot_area": [60.0, 20.0, 20.0, 20.0],
+      "source_order": ["s1"], "source_draw_order": ["s1"],
+      "x_axis_label": "APC-A", "y_axis_label": "FITC-A",
+    },
+  )
+  path = tmp_path / "narrow.png"
+  write_plot_png(
+    path, prepared, layers={"s1": ((0.5,), (0.5,))}, width=200, height=200,
+    options=BatchPlotExportSpec(
+      id="narrow", name="Narrow", width=200, height=200,
+      include_title=False, include_axis_labels=True, include_ticks=False,
+    ),
+  )
+  metadata = json.loads(path.with_suffix(".png.json").read_text())
+  anchor_x = metadata["plot_layout"]["y_axis_label_anchor"][0]
+  assert anchor_x >= 18.0
+  with Image.open(path) as image:
+    pixels = np.asarray(image.convert("RGB"))
+  # With ticks disabled the only ink in the left margin is the Y label.  A
+  # clipped glyph would leave dark pixels on the first canvas column.
+  assert not np.any(np.all(pixels[:, 0, :] < 200, axis=1))
+
+
 def test_raster_export_uses_bundled_scalable_fonts() -> None:
   regular = load_bundled_font(58)
   bold = load_bundled_font(58, bold=True)

@@ -91,6 +91,7 @@ from flowdesk_core.plot_presentation import (
     resolve_presentation_title,
 )
 from flowdesk_core.plot_scene import PlotScene
+from flowdesk_core.populations import build_population_paths
 from flowdesk_core.preview import (
     PreviewReport,
     PreviewRequest,
@@ -2607,7 +2608,12 @@ class MainWindow(QMainWindow):
                             or role_color
                             or self._sample_overlay_color(sample_id)
                         ),
-                        "alpha": float(style.get("alpha", 0.65)),
+                        "alpha": float(style.get("alpha", 0.60)),
+                        "marker_size": float(
+                            style.get("marker_size")
+                            if style.get("marker_size") is not None
+                            else self._plot_widget.style().dot_size
+                        ),
                         "label": style.get("legend_label", source.get("display_name", sample_id)),
                         "source_id": sample_id,
                         "z_value": float(sample_order.get(sample_id, 0)),
@@ -3279,6 +3285,10 @@ class MainWindow(QMainWindow):
                 "y_axis_label": y_label,
                 "view_range": view_range,
                 "plot_area": list(self._plot_widget.plot_area_margins()),
+                "y_axis_label_anchor": self._plot_widget.axis_label_anchors().get(
+                    "y_axis_label_anchor"
+                ),
+                "axis_label_canvas_size": list(self._plot_widget.canvas_size()),
                 "title_baseline_y": self._plot_widget.title_baseline_y(
                     (view.get("presentation", {}) or {}).get("title_font", {})
                 ),
@@ -6223,6 +6233,8 @@ class MainWindow(QMainWindow):
         live_ticks = self._plot_widget.scene_ticks()
         x_axis_label, y_axis_label = self._plot_widget.axis_display_labels()
         live_plot_area = self._plot_widget.plot_area_margins()
+        live_axis_label_anchors = self._plot_widget.axis_label_anchors()
+        live_canvas_size = self._plot_widget.canvas_size()
         live_title_baseline = self._plot_widget.title_baseline_y(
             resolved_presentation.get("title_font", {})
         )
@@ -6259,6 +6271,10 @@ class MainWindow(QMainWindow):
             "y_ticks": live_ticks.get("y_ticks", ()) or display_scene.get("y_ticks", ()),
             "x_axis_label": x_axis_label or display_scene.get("x_axis_label", ""),
             "y_axis_label": y_axis_label or display_scene.get("y_axis_label", ""),
+            "y_axis_label_anchor": live_axis_label_anchors.get(
+                "y_axis_label_anchor", display_scene.get("y_axis_label_anchor")
+            ),
+            "axis_label_canvas_size": list(live_canvas_size),
             "source_order": source_ids,
             "gates": normalized_gates,
             "title_lines": resolved_presentation["title"].splitlines(),
@@ -6381,6 +6397,73 @@ class MainWindow(QMainWindow):
             logger.error("Population Results export failed: %s", exc)
             QMessageBox.critical(self, "Export Error", str(exc))
 
+    def _results_export_population_options(
+        self, report: Any | None
+    ) -> tuple[tuple[str, str], ...]:
+        """Return stable population choices for the Results export dialog.
+
+        A stale project can still have rows in the Results view while its
+        authoritative execution report has been discarded.  The export dialog
+        must nevertheless expose the current hierarchy so the user's choices
+        can be retained while the canonical pipeline is rerun.  Fresh reports
+        use their resolved full paths; stale/no-report states use the current
+        gate editor and statistic targets as a definition-level fallback.
+        """
+        options: OrderedDict[str, str] = OrderedDict()
+
+        if report is not None and not self._results_stale:
+            try:
+                from flowdesk_core.export import build_results_wide_rows
+
+                for row in build_results_wide_rows(
+                    report, self._build_project_manifest()
+                ):
+                    population_id = str(row.population_id)
+                    population_path = str(row.population_path)
+                    if population_id and population_path:
+                        options.setdefault(population_id, population_path)
+            except Exception as exc:
+                logger.warning(
+                    "Could not resolve export populations from current report: %s",
+                    exc,
+                )
+
+        # Always include the root when samples are available.  This makes the
+        # dialog useful before the first pipeline run and after a project load
+        # has marked the retained Results rows stale.
+        options.setdefault("all_events", "All Events")
+
+        gates = tuple(self._gate_editor.gates())
+        try:
+            paths = build_population_paths(gates)
+        except Exception as exc:
+            # Keep export usable even when a malformed hierarchy is present;
+            # pipeline execution will report the authoritative hierarchy error.
+            logger.warning("Could not resolve current population hierarchy: %s", exc)
+            paths = {}
+        for population_id, population_path in paths.items():
+            options.setdefault(str(population_id), str(population_path))
+
+        # Statistic targets can refer to a population that is not represented
+        # in a retained report yet.  Include those IDs so users do not lose an
+        # intended export selection while waiting for recalculation.
+        names = self._population_name_map()
+        for statistic in self._statistics:
+            population_ids = statistic.get("population_ids")
+            if population_ids is None:
+                population_ids = [statistic.get("population_id", "all_events")]
+            if isinstance(population_ids, str):
+                population_ids = [population_ids]
+            for population_id in population_ids or ():
+                normalized_id = str(population_id or "")
+                if normalized_id:
+                    options.setdefault(
+                        normalized_id,
+                        names.get(normalized_id, normalized_id),
+                    )
+
+        return tuple(options.items())
+
     def _on_export_results(self) -> None:
         """Export Results, rerunning the pipeline when the report is stale."""
         report = self._last_result_report or self._population_tree.last_report()
@@ -6394,23 +6477,7 @@ class MainWindow(QMainWindow):
 
         from flowdesk_qt.results_export_dialog import ResultsExportDialog
 
-        population_options: tuple[tuple[str, str], ...] = ()
-        if report is not None:
-            try:
-                from flowdesk_core.export import build_results_wide_rows
-
-                population_options = tuple(dict.fromkeys(
-                    (row.population_id, row.population_path)
-                    for row in build_results_wide_rows(
-                        report, self._build_project_manifest()
-                    )
-                ))
-            except Exception as exc:
-                logger.warning("Could not resolve export populations: %s", exc)
-                population_options = tuple(dict.fromkeys(
-                    (result.population_id, result.population_id)
-                    for result in report.population_results
-                ))
+        population_options = self._results_export_population_options(report)
         options_dialog = ResultsExportDialog(self, population_options)
         if options_dialog.exec() != QDialog.DialogCode.Accepted:
             return

@@ -272,7 +272,14 @@ class PlotWidget(QWidget):
             return None
 
     def axis_label_anchors(self) -> dict[str, tuple[float, float]]:
-        """Measure GUI axis-label anchors in logical canvas coordinates."""
+        """Measure renderer-compatible axis-label anchors.
+
+        The returned coordinates use the same convention as the core
+        renderer: the X label is centred horizontally with its top Y,
+        while the rotated Y label uses its centre point.  Keeping this
+        convention explicit prevents a QGraphicsTextItem bounding-box edge
+        from being mistaken for the export anchor and clipping the label.
+        """
         result: dict[str, tuple[float, float]] = {}
         for name in ("bottom", "left"):
             try:
@@ -285,11 +292,11 @@ class PlotWidget(QWidget):
                 if name == "bottom":
                     result["x_axis_label_anchor"] = (
                         (float(top_left.x()) + float(bottom_right.x())) / 2.0,
-                        float(bottom_right.y()),
+                        float(top_left.y()),
                     )
                 else:
                     result["y_axis_label_anchor"] = (
-                        float(top_left.x()),
+                        (float(top_left.x()) + float(bottom_right.x())) / 2.0,
                         (float(top_left.y()) + float(bottom_right.y())) / 2.0,
                     )
             except (AttributeError, RuntimeError, TypeError, ValueError):
@@ -579,7 +586,11 @@ class PlotWidget(QWidget):
                         # example ``1e5``).  The shared writers apply the
                         # Unicode superscript formatting, so the current-view
                         # and Batch sidecars remain semantically identical.
-                        "label": str(tick.label),
+                        # Minor transform ticks are grid-only in the live
+                        # axis (``_update_transform_ticks`` assigns them an
+                        # empty Qt label), so do not expose their raw value
+                        # as export text.
+                        "label": str(tick.label) if tick.level == "major" else "",
                         "major": tick.level == "major",
                     })
             result[f"{axis_key}_ticks"] = ticks
@@ -602,6 +613,9 @@ class PlotWidget(QWidget):
                 levels = []
             span = axis_range[1] - axis_range[0]
             ticks: list[dict[str, object]] = []
+            visible_labels = self._visible_auto_tick_labels(
+                axis, axis_name, axis_range, levels,
+            )
             for level_index, (spacing, values) in enumerate(levels):
                 try:
                     labels = axis.tickStrings(values, 1.0, spacing)
@@ -612,11 +626,71 @@ class PlotWidget(QWidget):
                     if 0.0 <= position <= 1.0:
                         ticks.append({
                             "position": position,
-                            "label": str(label),
+                            # Keep every tick for grid/axis geometry, but
+                            # only retain text that pyqtgraph actually drew
+                            # after its density and overlap checks.
+                            "label": str(label) if (level_index, value) in visible_labels else "",
+                            "label_visible": (level_index, value) in visible_labels,
                             "major": level_index == 0,
                         })
             result[axis_key] = ticks
         return result
+
+    @staticmethod
+    def _visible_auto_tick_labels(
+        axis: Any,
+        axis_name: str,
+        axis_range: tuple[float, float],
+        levels: list[tuple[float, list[float]]],
+    ) -> set[tuple[int, float]]:
+        """Return auto-tick labels that pyqtgraph's axis really paints.
+
+        ``AxisItem.tickValues`` includes subminor values used for grid lines,
+        while ``generateDrawSpecs`` hides crowded text levels.  Export needs
+        both: all values for grid geometry and only the visible labels.  Read
+        the final text specs from the same Qt axis so a logical snapshot does
+        not invent labels that are absent from the live GUI.
+        """
+        if not levels:
+            return set()
+        try:
+            geometry = axis.geometry()
+            length = float(geometry.width() if axis_name == "bottom" else geometry.height())
+            if length <= 0:
+                return set()
+            image = QImage(QSize(1, 1), QImage.Format.Format_ARGB32)
+            painter = QPainter(image)
+            try:
+                text_specs = axis.generateDrawSpecs(painter)[2]
+            finally:
+                painter.end()
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            return set()
+        span = float(axis_range[1]) - float(axis_range[0])
+        if span <= 0:
+            return set()
+        candidates: list[tuple[int, float, str, float]] = []
+        for level_index, (spacing, values) in enumerate(levels):
+            try:
+                labels = axis.tickStrings(values, 1.0, spacing)
+            except (TypeError, ValueError):
+                labels = [str(value) for value in values]
+            for value, label in zip(values, labels, strict=False):
+                position = (float(value) - float(axis_range[0])) / span
+                candidates.append((level_index, float(value), str(label), position))
+        visible: set[tuple[int, float]] = set()
+        for rect, _flags, text in text_specs:
+            center = float(rect.center().x() if axis_name == "bottom" else rect.center().y())
+            position = center / length if axis_name == "bottom" else 1.0 - center / length
+            matches = [
+                candidate for candidate in candidates
+                if candidate[2] == str(text)
+            ]
+            if not matches:
+                continue
+            nearest = min(matches, key=lambda candidate: abs(candidate[3] - position))
+            visible.add((nearest[0], nearest[1]))
+        return visible
 
     def tick_policy(self) -> TickPolicy:
         return self._tick_policy
@@ -961,13 +1035,17 @@ class PlotWidget(QWidget):
             if sample_indices is not None:
                 x_values = x_values[sample_indices]
                 y_values = y_values[sample_indices]
+            marker_size_value = style.get("marker_size")
+            marker_size = float(
+                marker_size_value if marker_size_value is not None else self._style.dot_size
+            )
             item = self._plot_item.plot(
                 x_values,
                 y_values,
                 pen=None,
                 symbolPen=None,
                 symbol="o",
-                symbolSize=self._style.dot_size,
+                symbolSize=marker_size,
                 pxMode=True,
                 symbolBrush=self._make_brush(
                     style.get("color", self._style.dot_color),

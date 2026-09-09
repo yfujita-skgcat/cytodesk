@@ -241,7 +241,7 @@ Undo/Redo は操作可能な履歴がないと disabled になる。Gate history
 |項目|説明|
 |---|---|
 |Edit Statistic...|統計定義を作成・編集する。初期 population は All Events。|
-|Export Results...|population metrics と custom statistics を wide/long TSV/CSV に書き出す。Populations欄でAll Eventsや任意のgate階層をチェックして出力対象を絞り込める。DestinationでFileまたはClipboard (TSV)を選べる。Clipboardを選ぶとタブ区切りの表をシステムクリップボードへコピーし、ExcelやGoogle Sheetsへそのまま貼り付けられる。Results が stale または未計算の場合は、保存先と形式を確認した後に Pipeline を自動実行し、完了後に最新結果を出力する。Pipeline が失敗した場合は出力しない。|
+|Export Results...|population metrics と custom statistics を wide/long TSV/CSV に書き出す。Populations欄でAll Eventsや任意のgate階層をチェックして出力対象を絞り込める。DestinationでFileまたはClipboard (TSV)を選べる。Clipboardを選ぶとタブ区切りの表をシステムクリップボードへコピーし、ExcelやGoogle Sheetsへそのまま貼り付けられる。Results が stale または未計算の場合も、現在のgate hierarchyと統計targetからPopulations候補を表示する。選択した保存先・形式・Populationを保持したままPipelineを自動実行し、完了後に最新結果を出力する。Pipeline が失敗した場合は出力しない。|
 |Batch Plot Export...|Batch Plot Export定義を作成・編集・選択し、保存または指定output directoryへbatch exportする。|
 
 ### 5.5 Data
@@ -1057,6 +1057,8 @@ fixtureはseedとpoint hashを固定し、raw eventsや解析結果を変更し�
 
 `Batch Plot Export...` は定義の新規作成・編集・選択と、保存のみ／保存して実行を行う。対象サンプル、plot view、形式、Canvas Width/Height、DPI、1:1、layout、表示要素、filename template、collision policy、strict mode、output directoryを指定できる。ダイアログを開いた直後のCanvas Width/Heightは、現在GUIで軸・タイトル・gridが描画されているplot canvasのサイズから初期化される（ステータスバナーの高さは含まれない）。また、現在のViewBoxが使う軸・tick・タイトル余白を保存済み表示シーンへ記録し、export時のプロット枠に再利用する。保存済みDefinitionを選択しても、編集中のCanvas Width/Heightは変更されないため、Definitionの表示設定を読み込みながら同じ出力キャンバスを維持できる。`Aspect`（1:1）を有効にするとCanvas HeightはWidthと同じ値に自動追従し、Height欄は編集できなくなる。項目が画面に収まらない場合はダイアログをマウスでリサイズでき、中央の設定欄をスクロールして下部の保存・実行・キャンセルボタンへアクセスできる。Batch Exportは保存時点のactive plot view（X/Y channel、transform、population、overlay、presentation）を使用する。未保存projectでは、保存または実行時に通常のproject保存を行う。
 
+GUI表示とBatch PNGを画像ビューアで比較するときは、まずPNGのsidecar（`<file>.png.json`）にある`export_canvas.logical_width`/`logical_height`を確認する。`dpi_scaled`では実pixel数が`logical × DPI / 96`に増えるため、300 DPI画像をビューアの自動縮小（例: 23%）でGUIの100%表示と直接比べると、点や文字が小さく見える。GUIのスナップショットとの比較は、PNGをsidecarの論理canvasへ縮小してから行う。比較の基準はイベント座標そのものではなく、共通`PlotScene`のplot rectangle、title/axis/tick、sourceの色・点サイズ・alpha、gate、view rangeであり、Qt/OSのアンチエイリアスによる1 pixel未満の差は許容される。現在のViewBoxで計測したY軸ラベル位置を同じ論理canvasへ渡すため、ラベルの左端が切れない。Qtで実際に表示されているminor tick labelもsnapshotへ記録し、Batch側で同じラベルを描画する。manual/advanced overlayはsourceごとのmarker sizeを使用し、alpha未指定時の既定値はGUIとBatchともに0.60である。
+
 output directoryはprojectには保存されず、アプリケーション設定（`QSettings`）に最後に使用した値だけが保存される。次回ダイアログを開くと復元されるため、同じ場所へ繰り返し出力できる。projectを別のディレクトリへ移動しても、この設定はprojectとは独立している。
 
 `Run Export` はGUIを停止させずに実行されます。表示される `Batch Plot Export` progress windowには、準備・render・sidecar・manifestの段階と完了数が表示されます。source準備中は、準備済みsourceのIDと `prepared source n/total` も表示されます。この段階の表示は出力ファイルの完了数とは別であり、sourceの完了順は出力順や科学的結果を変更しません。`Cancel` はsource境界、256イベント単位の描画checkpoint、次の安全な出力境界で協調的に停止します。既に完了した画像とsidecarは保持され、未開始項目はmanifestで `not_started`、停止を受けた項目は `cancelled` と記録されます。cancel中でも、画像・sidecar・manifestが途中の内容で公開されることはありません。
@@ -1113,7 +1115,7 @@ Batch 定義には PNG/JPG/SVG/PDF、DPI、1:1 aspect、タイトル・軸ラベ
 
 既定のtitleとX/Y axis labelはともに14 pt・boldである。Plot Styleから個別に変更でき、ライブGUIとbatch exportは同じ保存済みpresentation指定を使う。`Definition`の一覧を整理するには、対象を選んで **Delete Definition** を押し、確認ダイアログで承認する。削除はprojectへ保存され、出力済みファイルは削除しない。
 
-GUIとheadless exportは、X/Y parameter、transform ID、viewport、GUIで確定したtick levels、title/source色、gate geometry・色・線幅・線種、clip、z-orderを含む共通のrenderer-neutral `PlotScene`を使用する。toolbarの単一plot exportも、確定済みGUI表示配列を同じcore PNG/JPEG/SVG/PDF adapterへ渡すため、旧QPainter固定座標経路は使用しない。sidecarにはsceneの決定的hashも記録される。作成中gateのpreviewや編集用handleはsceneに含まれないため、exportへ混入しない。OSやフォントbackendが異なる場合はpixel完全一致ではなく、scene値と幾何・色・文字配置の許容差を再現性の基準とする。
+GUIとheadless exportは、X/Y parameter、transform ID、viewport、GUIで確定したtick levels、title/source色、sourceごとのmarker size・alpha、gate geometry・色・線幅・線種、clip、z-orderを含む共通のrenderer-neutral `PlotScene`を使用する。toolbarの単一plot exportも、確定済みGUI表示配列を同じcore PNG/JPEG/SVG/PDF adapterへ渡すため、旧QPainter固定座標経路は使用しない。`Single dot size` と `Single color` はactive sourceおよび明示的なsource overrideがないoverlayへ同じように適用され、export時に既定1.5 pxへ戻ることはない。sidecarにはsceneの決定的hashも記録される。作成中gateのpreviewや編集用handleはsceneに含まれないため、exportへ混入しない。OSやフォントbackendが異なる場合はpixel完全一致ではなく、scene値と幾何・色・文字配置の許容差を再現性の基準とする。
 
  GUIから実行する`Batch Plot Export`もCLIと同じrenderer-neutral core rendererを使います。これにより、PNG/JPEG/SVG/PDFの表示範囲、点の順序と色、axis、tick、gate、title、軸ラベルは同じ`PlotScene`と`PlotLayoutSpec`から出力されます。複数行タイトルの下へ凡例を配置するため、タイトルがplot areaへ重なることはありません。ライブ画面は引き続きQt/pyqtgraph、出力はPillow/SVG/PDFの独立adapterで描画されるため、OSやフォントbackendによるアンチエイリアス差はあり得ますが、論理座標・文字列・色・表示範囲は一致します。
 
