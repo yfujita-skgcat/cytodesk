@@ -2615,7 +2615,13 @@ class MainWindow(QMainWindow):
                             else self._plot_widget.style().dot_size
                         ),
                         "label": style.get("legend_label", source.get("display_name", sample_id)),
-                        "source_id": sample_id,
+                        # Keep the persisted source identity for advanced
+                        # overlays. Manual overlays use ``manual:<sample_id>``
+                        # and are mapped to that same identity by the export
+                        # metadata builder; using only the sample ID here
+                        # made advanced layers disappear from current-view
+                        # exports because their source IDs could not match.
+                        "source_id": source_id,
                         "z_value": float(sample_order.get(sample_id, 0)),
                     },
                 )
@@ -6283,17 +6289,34 @@ class MainWindow(QMainWindow):
                 for source_id in source_ids
             ),
         })
-        rendered_overlay_ids = [
-            str(style.get("source_id")) for _x, _y, style in rendered_layers
-            if style.get("source_id") and style.get("source_id") != self._current_sample_id
-        ]
+        active_source_id = (
+            source_id_by_sample.get(self._current_sample_id, self._current_sample_id)
+            if self._current_sample_id else None
+        )
+        draw_candidates: list[tuple[float, int, str]] = []
+        for index, (_x_values, _y_values, style) in enumerate(rendered_layers):
+            rendered_source_id = (
+                active_source_id
+                if index == 0
+                else str(style.get("source_id", ""))
+            )
+            source_id = source_id_by_sample.get(rendered_source_id, rendered_source_id)
+            if not source_id or source_id not in source_ids:
+                continue
+            try:
+                z_value = float(style.get("z_value", index))
+            except (TypeError, ValueError):
+                z_value = float(index)
+            draw_candidates.append((z_value, index, source_id))
+        known_draw_ids = {source_id for _z, _index, source_id in draw_candidates}
+        draw_candidates.extend(
+            (float(len(draw_candidates) + index), len(draw_candidates) + index, source_id)
+            for index, source_id in enumerate(source_ids)
+            if source_id not in known_draw_ids
+        )
         draw_order = tuple(
-            [source_id_by_sample.get(self._current_sample_id, self._current_sample_id)]
-            + [value for value in rendered_overlay_ids
-               if value != source_id_by_sample.get(
-                   self._current_sample_id, self._current_sample_id
-               )]
-        ) if self._current_sample_id else source_ids
+            source_id for _z_value, _index, source_id in sorted(draw_candidates)
+        ) if draw_candidates else source_ids
         return {
             "plot_id": view.get("id"),
             "definition_version": 1,
@@ -6319,7 +6342,10 @@ class MainWindow(QMainWindow):
                 for sample_id, source_id in zip(semantic_ids, source_ids, strict=True)
             ],
             "presentation": resolved_presentation,
-            "scene": scene.to_mapping(),
+            "scene": {
+                **scene.to_mapping(),
+                "source_draw_order": list(draw_order),
+            },
             "style_provenance": dict(resolved.provenance),
             "integrated_overlay": self._sample_browser.overlay_state(),
             "integrated_style_provenance": self._integrated_style_provenance(),

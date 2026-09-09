@@ -928,7 +928,13 @@ def test_batch_plot_renders_manual_overlay_sources_in_order(
   assert tick_calls == 2
   metadata = json.loads(next(output_dir.glob("*s1*.svg.json")).read_text(encoding="utf-8"))
   assert metadata["ordered_source_ids"] == ["s1", "s2", "s3"]
-  assert metadata["scene"]["source_draw_order"] == ["s1", "s3", "s2"]
+  # Batch paints back-to-front using the same Samples-list Z contract as the
+  # live GUI: the bottom row is drawn first and the top row (s1) is frontmost.
+  assert metadata["scene"]["source_draw_order"] == ["s3", "s2", "s1"]
+  point_section = text.split('<g clip-path="url(#plot-clip)">', 1)[1]
+  assert point_section.index('href="#scatter-marker-0"') < point_section.index(
+    'href="#scatter-marker-1"'
+  ) < point_section.index('href="#scatter-marker-2"')
 
   # current_view uses the same cache when every target has the same persisted
   # bounds.  This must not depend on the layout policy name.

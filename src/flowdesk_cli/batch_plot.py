@@ -57,6 +57,7 @@ from flowdesk_core.plot_export import (
   prepare_display_export as prepare_plot_export,
 )
 from flowdesk_core.plot_presentation import OverlaySourceResolution
+from flowdesk_core.plot_scene import resolve_source_draw_order
 from flowdesk_core.processed_display import ProcessedDisplayLayer, ProcessedDisplayRequest
 from flowdesk_core.transforms import apply_transform, generate_transform_ticks
 from flowdesk_core.vector_scatter import preflight_vector_scatter_export
@@ -931,10 +932,16 @@ def batch_plot_command(
         and source.get("sample_id")
         for source in view.get("overlay_sources", ())
       )
-      draw_overlay_ids = (
-        overlay_ids if has_advanced_overlay_order else tuple(reversed(overlay_ids))
-      )
-      draw_source_ids = (sample_id, *draw_overlay_ids)
+      if has_advanced_overlay_order:
+        # Persisted advanced definitions carry their own explicit order. Keep
+        # that contract unchanged. Manual overlays use the Samples-list Z
+        # order below so Batch and the live Qt plot paint the same source on
+        # top.
+        draw_source_ids = (sample_id, *overlay_ids)
+      else:
+        draw_source_ids = resolve_source_draw_order(
+          source_ids, tuple(sample_by_id)
+        )
       sources = []
       layers: dict[str, LayerValues] = {}
       visible_masks: dict[str, np.ndarray] = {}

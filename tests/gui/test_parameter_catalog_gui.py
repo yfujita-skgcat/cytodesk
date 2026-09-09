@@ -326,6 +326,8 @@ def test_advanced_overlay_source_renders_persisted_layer(qapp, tmp_path) -> None
     overlay_x, overlay_y = window._plot_widget._overlay_scatter_items[0].getData()
     np.testing.assert_allclose(overlay_x, [3.0, 9.0])
     np.testing.assert_allclose(overlay_y, [1.0, 3.0])
+    exported_layers = window._plot_widget.export_data_layers()["layers"]
+    assert exported_layers and exported_layers[0][2]["source_id"] == "advanced-overlay"
   finally:
     window.close()
     window.deleteLater()

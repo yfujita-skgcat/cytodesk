@@ -85,24 +85,45 @@ edge difference from Qt/Pillow antialiasing is allowed, but a size change larger
 than one logical pixel fails. Batch definitions with an explicit per-source
 `marker_size` remain authoritative and are not overwritten.
 
-### Batch overlay order correction (2026-08-04)
+### Batch overlay order correction (2026-09-09)
 
-Batch previously reversed `manual_overlay_sample_ids` while constructing
-`source_ids`. That made the same reversed tuple drive titles, source metadata,
-and painter order, so a three-source Batch title could be `blue, green, red`
-while the GUI was `blue, red, green`. The Batch builder now keeps the Samples
-list order in `source_ids` and writes a separate `scene.source_draw_order`:
-manual overlays are reversed only for painter order, while advanced overlay
-definitions retain their explicit order. This preserves existing dot
-occlusion semantics and fixes title/metadata order. A three-source SVG test
-asserts both the title sequence and `source_draw_order`.
+Batch previously drew the active source first and then reversed only the
+overlay tuple (for example, `s1, s3, s2`). That was not the same as the live
+Qt plot: Qt assigns a Z value from the complete Samples list, so the upper
+row is frontmost and every source—including the active source—must be painted
+back-to-front from the bottom row upward (`s3, s2, s1`). The Batch builder now
+keeps the Samples-list order in semantic `source_order` (for titles and
+metadata) and resolves manual `scene.source_draw_order` with the shared core
+`resolve_source_draw_order()` helper. Advanced overlay definitions retain
+their explicit painter order for compatibility. The three-source regression
+test asserts both title order and the corrected draw order.
+
+### Current-view overlay stacking correction (2026-09-09)
+
+The live Qt plot assigns an explicit `QGraphicsItem` Z value to the active
+sample and each overlay. The current-view export previously discarded those
+values and used the layer insertion order, which made the last exported overlay
+cover points that were frontmost in the GUI. `PlotWidget.export_data_layers()`
+now includes each layer's effective Z value, and
+`MainWindow._current_plot_export_metadata()` sorts only
+`scene.source_draw_order` by that value. Semantic source/title order remains
+unchanged. The same layer arrays and source IDs are still passed to the shared
+core renderer, so no event data or population result is modified.
+
+The live overlay payload also preserves the persisted source identity (for
+example, an advanced source ID rather than only its sample ID). This is
+required for the source-ID keyed current-view adapter: if the IDs are reduced
+to sample IDs, an overlay can be visible in Qt while being omitted from the
+export layer map. Manual overlays continue to use their stable
+`manual:<sample_id>` identity.
 
 ## Purpose
 
 Make plot-area context-menu export and toolbar single-plot export use the same
-GUI-independent preparation and writer path as Batch Plot Export. The Batch
-output currently used by users is the regression baseline and must not change
-while this work is introduced.
+GUI-independent preparation and writer path as Batch Plot Export. Batch output
+remains the regression baseline for all existing layout, style, sampling, and
+scientific behavior; the known overlay painter-order mismatch is corrected so
+that Batch follows the live GUI Samples-list Z contract.
 
 This is display/export work only. It must not modify raw FCS events,
 compensation, derived parameters, transforms, gate membership, population
@@ -360,7 +381,8 @@ scene geometry, and gate/tick coordinates require exact equality.
 ## Batch-protection rules
 
 - Treat current Batch output as the baseline until Increment 2 proves exact
-  equivalence.
+  equivalence, except for the explicitly characterized overlay painter-order
+  correction documented above.
 - Do not alter Batch defaults, naming, queue behavior, worker scheduling,
   collision policy, vector-scatter mode, DPI semantics, or file manifests.
 - Do not make Batch depend on PySide6, pyqtgraph, monitor DPI, widget geometry,
@@ -370,8 +392,10 @@ scene geometry, and gate/tick coordinates require exact equality.
 - Preserve the processing order and raw-event immutability.
 - Display filtering of NaN/Inf may remove only unrenderable points. Record
   input and displayed counts; never change membership/statistics.
-- If a migration is needed for `source_draw_order`, default old projects to the
-  former Batch `source_order` so old Batch images remain unchanged.
+- If a migration is needed for `source_draw_order`, default old scenes without
+  an explicit field to their former source order. Newly prepared manual
+  overlays must carry the Samples-list Z order explicitly so old projects do
+  not silently reintroduce the GUI/Batch mismatch.
 
 ## Forbidden shortcuts
 

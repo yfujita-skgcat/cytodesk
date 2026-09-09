@@ -42,7 +42,11 @@ from flowdesk_core.plot_reuse import (
   TemplateSourceRole,
   map_template_sources,
 )
-from flowdesk_core.plot_scene import PlotScene, resolve_plot_layout
+from flowdesk_core.plot_scene import (
+  PlotScene,
+  resolve_plot_layout,
+  resolve_source_draw_order,
+)
 from flowdesk_core.vector_scatter import VectorScatterLayer, compact_scatter_batches
 from flowdesk_storage.project import load_project, save_project
 
@@ -61,6 +65,15 @@ def test_current_view_payload_separates_semantic_and_draw_order() -> None:
   assert prepared.draw_order == ("green", "red", "blue")
   assert prepared.scene.source_draw_order == ("green", "red", "blue")
   assert prepared.scene.title_lines == ("blue", "red", "green")
+
+
+def test_source_draw_order_matches_samples_list_z_order() -> None:
+  assert resolve_source_draw_order(
+    ("s1", "s2", "s3"), ("s1", "s2", "s3", "s4")
+  ) == ("s3", "s2", "s1")
+  assert resolve_source_draw_order(
+    ("s2", "s4", "s1"), ("s1", "s2", "s3", "s4")
+  ) == ("s4", "s2", "s1")
 
 
 def test_current_view_gate_normalization_matches_renderer_contract() -> None:

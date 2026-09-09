@@ -744,7 +744,15 @@ class PlotWidget(QWidget):
         active_y = self._rendered_y
         layers: list[tuple[np.ndarray, np.ndarray, dict[str, Any]]] = []
         if active_x is not None and active_y is not None:
-            layers.append((active_x.copy(), active_y.copy(), {}))
+            # Preserve the actual Qt stacking value so current-view export can
+            # reproduce the live overlay occlusion order. The active layer's
+            # source identity is resolved by MainWindow from the current
+            # sample, while its z value is owned by this widget.
+            layers.append((
+                active_x.copy(),
+                active_y.copy(),
+                {"z_value": float(self._base_layer_z)},
+            ))
         layers.extend(
             (x.copy(), y.copy(), dict(style))
             for x, y, style in self._export_overlay_layers
@@ -1029,6 +1037,10 @@ class PlotWidget(QWidget):
             x_values = np.asarray(layer.x)
             y_values = np.asarray(layer.y)
             export_style = dict(style)
+            # QGraphicsItem stacking is explicit in the live widget. Store the
+            # effective value rather than only the user style so export does
+            # not fall back to insertion order.
+            export_style["z_value"] = float(style.get("z_value", z_index))
             sample_indices = self._display_sample_indices(
                 len(x_values), self._max_display_points
             )

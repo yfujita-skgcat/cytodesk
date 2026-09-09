@@ -11,6 +11,7 @@ from PIL import Image
 
 from flowdesk_cli.batch_plot import _write_render_payload
 from flowdesk_core.models import BatchPlotExportSpec
+from flowdesk_core.overlays import Overlay2DLayer
 from flowdesk_core.plot_export import prepare_display_export, write_plot_png
 from flowdesk_core.plot_presentation import OverlaySourceResolution
 from flowdesk_core.plot_scene import PlotScene, resolve_plot_layout
@@ -19,6 +20,118 @@ from flowdesk_qt.plot_widget import PlotWidget
 from flowdesk_qt.qt_plot_export import render_batch_plot_qt
 
 pytestmark = pytest.mark.gui
+
+
+def test_plot_widget_export_layers_preserve_qt_stacking_values(qapp) -> None:
+  widget = PlotWidget()
+  try:
+    widget.plot_events(np.array([1.0]), np.array([1.0]))
+    widget.set_base_layer_z(3.0)
+    widget.plot_overlay_layers([
+      Overlay2DLayer(
+        "overlay-low", np.array([2.0]), np.array([2.0]), {"z_value": 1.0}
+      ),
+      Overlay2DLayer(
+        "overlay-high", np.array([3.0]), np.array([3.0]), {"z_value": 2.0}
+      ),
+    ])
+    layers = widget.export_data_layers()["layers"]
+    assert [layer[2]["z_value"] for layer in layers] == [3.0, 1.0, 2.0]
+  finally:
+    widget.close()
+    widget.deleteLater()
+    qapp.processEvents()
+
+
+def test_live_overlay_snapshot_and_export_have_same_frontmost_source(qapp, tmp_path) -> None:
+  """Compare a real Qt overlay snapshot with the canonical PNG at one overlap."""
+  widget = PlotWidget()
+  try:
+    widget.resize(400, 300)
+    widget.show()
+    widget.plot_events(
+      np.array([0.5]), np.array([0.5]), x_label="X", y_label="Y",
+    )
+    widget.set_manual_view_range((0.0, 1.0), (0.0, 1.0))
+    widget.set_presentation({
+      "single_color": "#0000ff", "single_dot_size": 20.0,
+      "show_grid": False, "title": "", "x_axis_display_label": "",
+      "y_axis_display_label": "",
+    })
+    widget.set_base_layer_z(0.0)
+    widget.plot_overlay_layers([
+      Overlay2DLayer(
+        "red", np.array([0.5]), np.array([0.5]),
+        {"source_id": "s2", "color": "#ff0000", "alpha": 0.60,
+         "marker_size": 20.0, "z_value": 1.0},
+      ),
+      Overlay2DLayer(
+        "green", np.array([0.5]), np.array([0.5]),
+        {"source_id": "s3", "color": "#00ff00", "alpha": 0.60,
+         "marker_size": 20.0, "z_value": 2.0},
+      ),
+    ])
+    qapp.processEvents()
+    gui_path = tmp_path / "overlay-gui.png"
+    assert widget._glw.grab().save(str(gui_path))
+    width, height = widget.canvas_size()
+    left, top, right, bottom = widget.plot_area_margins()
+    center_x = round(left + 0.5 * (width - left - right))
+    center_y = round(top + 0.5 * (height - top - bottom))
+    with Image.open(gui_path) as image:
+      gui_pixels = np.asarray(image.convert("RGB"), dtype=np.float64)
+      gui_center = gui_pixels[center_y, center_x]
+    scene = PlotScene.from_mapping({
+      "plot_area": [left, top, right, bottom],
+      "view_range": [[0.0, 1.0], [0.0, 1.0]],
+      "title_lines": [], "x_axis_label": "", "y_axis_label": "",
+      "source_order": ["s1", "s2", "s3"],
+      "source_draw_order": ["s1", "s2", "s3"],
+    })
+    prepared = prepare_display_export(
+      "overlay-view", "scatter",
+      tuple({
+        "source_id": source_id, "display_name": source_id,
+        "visible": True, "order": index,
+      } for index, source_id in enumerate(("s1", "s2", "s3"))),
+      tuple(OverlaySourceResolution(source_id, "compatible", index)
+            for index, source_id in enumerate(("s1", "s2", "s3"))),
+      presentation={
+        "single_color": "#0000ff", "single_dot_size": 20.0,
+        "source_styles": [
+          {"source_id": "s2", "color": "#ff0000", "alpha": 0.60,
+           "marker_size": 20.0},
+          {"source_id": "s3", "color": "#00ff00", "alpha": 0.60,
+           "marker_size": 20.0},
+        ],
+      },
+      active_source_id="s1", scene=scene.to_mapping(),
+    )
+  finally:
+    widget.close()
+    widget.deleteLater()
+    qapp.processEvents()
+  export_path = tmp_path / "overlay-export.png"
+  write_plot_png(
+    export_path, prepared,
+    layers={source_id: ((0.5,), (0.5,)) for source_id in ("s1", "s2", "s3")},
+    options=BatchPlotExportSpec(
+      id="overlay-parity", name="Overlay parity", width=width, height=height,
+      dpi=96, raster_resolution_mode="legacy_pixel_dimensions",
+      include_title=False, include_axis_labels=False, include_ticks=False,
+      include_gates=False, include_legend=False,
+    ),
+  )
+  with Image.open(export_path) as image:
+    export_pixels = np.asarray(image.convert("RGB"), dtype=np.float64)
+    export_center = export_pixels[center_y, center_x]
+  normalized_rmse = float(
+    np.sqrt(np.mean(np.square(gui_pixels - export_pixels))) / 255.0
+  )
+  assert normalized_rmse < 0.22
+  assert np.linalg.norm(gui_center.astype(int) - export_center.astype(int)) <= 12
+  assert int(gui_center[1]) > int(gui_center[0])
+  assert int(export_center[1]) > int(export_center[0])
 
 
 def test_live_export_metadata_includes_manual_overlay_layers(qapp, monkeypatch) -> None:
@@ -32,18 +145,25 @@ def test_live_export_metadata_includes_manual_overlay_layers(qapp, monkeypatch) 
     }]
     window._sample_browser._manual_overlay_sample_ids = {"s2", "s3"}
     monkeypatch.setattr(
+      window, "_current_plot_sample_ids",
+      lambda: ("s1", "manual:s3", "manual:s2"),
+    )
+    monkeypatch.setattr(
       window._plot_widget, "export_data_layers", lambda: {
         "layers": [
-          (np.array([1.0]), np.array([1.0]), {}),
-          (np.array([2.0]), np.array([2.0]), {"source_id": "manual:s3"}),
-          (np.array([3.0]), np.array([3.0]), {"source_id": "manual:s2"}),
+          (np.array([1.0]), np.array([1.0]), {"z_value": 3.0}),
+          (np.array([2.0]), np.array([2.0]), {"source_id": "manual:s3", "z_value": 1.0}),
+          (np.array([3.0]), np.array([3.0]), {"source_id": "manual:s2", "z_value": 2.0}),
         ],
         "event_colors": None,
       },
     )
     metadata = window._current_plot_export_metadata()
     assert metadata["ordered_source_ids"] == ["s1", "manual:s3", "manual:s2"]
-    assert metadata["source_draw_order"] == ["s1", "manual:s3", "manual:s2"]
+    assert metadata["source_draw_order"] == ["manual:s3", "manual:s2", "s1"]
+    assert metadata["scene"]["source_draw_order"] == [
+      "manual:s3", "manual:s2", "s1",
+    ]
   finally:
     window.close()
     window.deleteLater()

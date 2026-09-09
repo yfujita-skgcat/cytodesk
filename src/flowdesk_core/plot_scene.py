@@ -4,10 +4,39 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any
+
+
+def resolve_source_draw_order(
+  source_order: Sequence[str],
+  sample_order: Sequence[str],
+) -> tuple[str, ...]:
+  """Return back-to-front source order for the visible Samples list.
+
+  The Qt Samples pane is ordered front-to-back: a row nearer the top is given
+  a larger graphics Z value and is therefore painted over rows below it.  The
+  renderer-neutral writers consume ``source_draw_order`` back-to-front, so
+  batch preparation must walk the same list in reverse.  Unknown source IDs
+  are retained at the end in their original order rather than being silently
+  dropped; validation will still reject an ID that is not a visible layer.
+  """
+  source_values = tuple(str(value) for value in source_order)
+  sample_positions = {
+    str(value): index for index, value in enumerate(sample_order)
+  }
+  known: list[tuple[int, str]] = []
+  unknown: list[tuple[int, str]] = []
+  for index, source_id in enumerate(source_values):
+    position = sample_positions.get(source_id)
+    if position is None:
+      unknown.append((index, source_id))
+    else:
+      known.append((position, source_id))
+  known.sort(key=lambda item: item[0], reverse=True)
+  return tuple(source_id for _position, source_id in (*known, *unknown))
 
 
 @dataclass(frozen=True)
