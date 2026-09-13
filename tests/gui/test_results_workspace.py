@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QSplitter, QTableWidget, QTabWidget, QWidget
 
 from flowdesk_core.execution_report import ExecutionReport
 from flowdesk_core.fcs_io import write_fcs_file
-from flowdesk_core.models import PopulationResult, StatisticResult
+from flowdesk_core.models import GateSpec, PopulationResult, StatisticResult
 from flowdesk_core.preview import PreviewReport
 from flowdesk_qt.display_format import format_display_number, format_percentage
 from flowdesk_qt.main_window import MainWindow
@@ -464,6 +464,155 @@ def test_results_workspace_marks_missing_statistic_without_fabricating_value(qap
   finally:
     workspace.close()
     workspace.deleteLater()
+    qapp.processEvents()
+
+
+def test_results_workspace_ignores_population_rows_removed_from_definitions(qapp) -> None:
+  report = ExecutionReport(
+    project_id="project",
+    execution_profile_id="default",
+    pipeline_version="test",
+    status="success",
+    population_results=(
+      PopulationResult("sample-1", "all_events", 10, None, 1.0),
+      PopulationResult("sample-1", "removed-gate", 4, 0.4, 0.4),
+    ),
+  )
+  state = RuntimeResultState(
+    report,
+    sample_ids=("sample-1",),
+    population_ids=("all_events", "removed-gate"),
+  )
+  workspace = ResultsWorkspace()
+  try:
+    workspace.set_samples([("sample-1", "Sample 1")])
+    workspace.set_population_hierarchy(
+      {"all_events": None}, {"all_events": "All Events"}
+    )
+    workspace.set_result_state(state)
+
+    all_events = workspace.tree().topLevelItem(0).child(0)
+    assert all_events.childCount() == 0
+
+    workspace.set_mode("Flat table")
+    assert workspace.tree().topLevelItemCount() == 1
+    assert workspace.tree().topLevelItem(0).text(1) == "All Events"
+  finally:
+    workspace.close()
+    workspace.deleteLater()
+    qapp.processEvents()
+
+
+def test_project_load_discards_previous_result_state(qapp, tmp_path) -> None:
+  window = MainWindow()
+  try:
+    old_gate = GateSpec(
+      id="old-gate",
+      name="Old gate",
+      gate_type="range",
+      parent_population_id="all_events",
+      x_parameter="x",
+      thresholds={"min": 0.0},
+    )
+    new_gate = GateSpec(
+      id="new-gate",
+      name="New gate",
+      gate_type="range",
+      parent_population_id="all_events",
+      x_parameter="x",
+      thresholds={"min": 1.0},
+    )
+    window._gate_editor.set_gates([old_gate], notify=False)
+    report = ExecutionReport(
+      project_id=window._project_id,
+      execution_profile_id="default",
+      pipeline_version="test",
+      status="success",
+      population_results=(
+        PopulationResult("old-sample", "all_events", 10, None, 1.0),
+        PopulationResult("old-sample", "old-gate", 4, 0.4, 0.4),
+      ),
+    )
+    window._result_state.set_authoritative_report(
+      report,
+      revision=1,
+      sample_ids=("old-sample",),
+      population_ids=("all_events", "old-gate"),
+    )
+    window._results_workspace.set_population_hierarchy(
+      {"all_events": None, "old-gate": "all_events"},
+      {"all_events": "All Events", "old-gate": "Old gate"},
+    )
+    window._results_workspace.set_result_state(window._result_state)
+
+    window._gate_editor.set_gates([new_gate], notify=False)
+    window._sample_browser.add_project_samples([{
+      "id": "new-sample",
+      "name": "New sample",
+      "path": "",
+      "channels": [],
+    }])
+    project_path = tmp_path / "new-project.flowdesk"
+    window._save_project_to_path(project_path)
+    window._load_project_from_path(project_path)
+
+    assert "old-gate" not in window._result_state.defined_population_ids
+    assert window._result_state.defined_population_ids == {
+      "all_events", "new-gate",
+    }
+    tree = window._results_workspace.tree()
+    assert tree.topLevelItemCount() == 1
+    all_events = tree.topLevelItem(0).child(0)
+    assert [
+      all_events.child(index).data(0, Qt.UserRole)
+      for index in range(all_events.childCount())
+    ] == ["new-gate"]
+  finally:
+    window.close()
+    window.deleteLater()
+    qapp.processEvents()
+
+
+def test_sample_removal_discards_results_for_removed_sample(qapp, tmp_path) -> None:
+  sample_path = tmp_path / "sample.fcs"
+  write_fcs_file(
+    sample_path,
+    np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64),
+    ["X", "Y"],
+  )
+  window = MainWindow()
+  try:
+    assert window._sample_browser.add_samples_from_paths([str(sample_path)]) == 1
+    sample = window._sample_browser.samples()[0]
+    report = ExecutionReport(
+      project_id=window._project_id,
+      execution_profile_id="default",
+      pipeline_version="test",
+      status="success",
+      population_results=(
+        PopulationResult(sample.id, "all_events", 2, None, 1.0),
+      ),
+    )
+    window._result_state.set_authoritative_report(
+      report,
+      revision=1,
+      sample_ids=(sample.id,),
+      population_ids=("all_events",),
+    )
+    window._results_workspace.set_population_hierarchy(
+      {"all_events": None}, {"all_events": "All Events"}
+    )
+    window._results_workspace.set_result_state(window._result_state)
+
+    window._sample_browser._list_widget.setCurrentRow(0)
+    removed = window._sample_browser.remove_selected_samples()
+
+    assert [item.id for item in removed] == [sample.id]
+    assert all(row.key.sample_id != sample.id for row in window._result_state.rows())
+    assert window._results_workspace.tree().topLevelItemCount() == 0
+  finally:
+    window.close()
+    window.deleteLater()
     qapp.processEvents()
 
 

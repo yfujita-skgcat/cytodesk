@@ -166,6 +166,40 @@ class RuntimeResultState:
         ),
       )
 
+  def remove_samples(self, sample_ids: Sequence[str]) -> None:
+    """Discard deleted samples from rows, definitions, and cached reports."""
+    removed = {str(sample_id) for sample_id in sample_ids}
+    if not removed:
+      return
+
+    self._defined_sample_ids.difference_update(removed)
+    if self._active_sample_id in removed:
+      self._active_sample_id = None
+    self._rows = {
+      key: row for key, row in self._rows.items()
+      if key.sample_id not in removed
+    }
+
+    if self._authoritative_report is not None:
+      self._authoritative_report = replace(
+        self._authoritative_report,
+        population_results=tuple(
+          result
+          for result in self._authoritative_report.population_results
+          if result.sample_id not in removed
+        ),
+        population_membership=tuple(
+          membership
+          for membership in self._authoritative_report.population_membership
+          if membership.sample_id not in removed
+        ),
+        statistic_results=tuple(
+          result
+          for result in self._authoritative_report.statistic_results
+          if result.sample_id not in removed
+        ),
+      )
+
   def _register_statistic_definitions(
     self,
     statistic_definitions: Sequence[tuple[str, str]],

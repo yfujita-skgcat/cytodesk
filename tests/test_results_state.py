@@ -175,6 +175,20 @@ def test_removed_population_is_discarded_from_rows_and_authoritative_report() ->
   )
 
 
+def test_removed_sample_is_discarded_from_rows_and_authoritative_report() -> None:
+  state = _state()
+
+  state.remove_samples(("sample-2",))
+
+  assert all(row.key.sample_id != "sample-2" for row in state.rows())
+  assert state.authoritative_report is not None
+  assert all(
+    result.sample_id != "sample-2"
+    for result in state.authoritative_report.population_results
+  )
+  assert any(row.key.sample_id == "sample-1" for row in state.rows())
+
+
 def test_removed_statistic_is_discarded_from_rows_and_authoritative_report() -> None:
   report = ExecutionReport(
     project_id="project",

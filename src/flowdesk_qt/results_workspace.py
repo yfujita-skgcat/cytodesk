@@ -501,6 +501,8 @@ class ResultsWorkspace(QWidget):
       and (value or "all_events") == parent_id
     ]
     for value in results:
+      if value.key.result_id not in self._population_parents:
+        continue
       if value.key.result_id != "all_events" and (
         self._population_parents.get(value.key.result_id) or "all_events"
       ) == parent_id and value.key.result_id not in child_ids:
@@ -516,8 +518,15 @@ class ResultsWorkspace(QWidget):
     if self._result_state is None:
       return {}
     result: dict[str, list[ResultRowState]] = {}
+    defined_sample_ids = {sample_id for sample_id, _name in self._samples}
+    defined_population_ids = set(self._population_parents)
+    defined_population_ids.add("all_events")
     for row in self._result_state.rows():
-      if row.key.kind == "population":
+      if (
+        row.key.sample_id in defined_sample_ids
+        and row.key.kind == "population"
+        and row.key.result_id in defined_population_ids
+      ):
         result.setdefault(row.key.sample_id, []).append(row)
     return {sample_id: tuple(values) for sample_id, values in result.items()}
 

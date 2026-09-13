@@ -1451,7 +1451,9 @@ class MainWindow(QMainWindow):
         self._sample_data.pop(sample.id, None)
         self._prefetched_sample_ids.discard(sample.id)
         self._drop_processed_display_cache_sample(sample.id)
-        self._mark_results_stale(f"Removed: {sample.name}")
+        self._result_state.remove_samples((sample.id,))
+        self._last_result_report = self._result_state.authoritative_report
+        self._refresh_sample_display_names()
 
         # If the removed sample was the currently selected one, clear UI state
         if self._current_sample_id == sample.id:
@@ -1460,6 +1462,7 @@ class MainWindow(QMainWindow):
             self._channel_names = []
             self._channel_selector.set_channels([])
             self._plot_widget.clear_plot()
+        self._mark_results_stale(f"Removed: {sample.name}")
 
     def _on_samples_removed(self, samples: list[_SampleInfo]) -> None:
         """Clean up all removed samples once, then invalidate results once."""
@@ -1470,6 +1473,9 @@ class MainWindow(QMainWindow):
             self._sample_data.pop(sample.id, None)
             self._prefetched_sample_ids.discard(sample.id)
             self._drop_processed_display_cache_sample(sample.id)
+        self._result_state.remove_samples(removed_ids)
+        self._last_result_report = self._result_state.authoritative_report
+        self._refresh_sample_display_names()
         if self._current_sample_id in removed_ids:
             self._current_sample_id = None
             self._channel_metadata.set_sample(None)
@@ -3513,9 +3519,22 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Project Save Error", str(exc))
             return False
 
+    def _reset_project_runtime_results(self) -> None:
+        """Discard result state from the previous project or session."""
+        self._preview_scheduler.cancel_pending()
+        self._preview_revision = PreviewRevisionState(
+            # Keep revisions monotonic so a late preview from the previous
+            # project cannot collide with the new project's first request.
+            analysis_revision=self._preview_revision.analysis_revision + 1,
+        )
+        self._preview_report = None
+        self._last_result_report = None
+        self._result_state = RuntimeResultState()
+
     def _clear_project_session(self) -> None:
         """Clear project-owned state while keeping the main window reusable."""
         self._cancel_project_workers()
+        self._reset_project_runtime_results()
         self._plot_widget.clear_plot()
         self._sample_browser.clear_samples()
         self._event_data.clear()
@@ -3568,10 +3587,6 @@ class MainWindow(QMainWindow):
         self._old_membership_banner = False
         self._selected_gate_id = None
         self._pending_view_range_restore = None
-        self._preview_revision = PreviewRevisionState()
-        self._preview_report = None
-        self._last_result_report = None
-        self._result_state = RuntimeResultState()
         self._results_stale = False
         self._results_stale_reason = None
         self._pending_results_export = None
@@ -3982,6 +3997,7 @@ class MainWindow(QMainWindow):
         # run while the loaded samples and display state are being installed.
         self._project_id = str(manifest["project_id"])
         self._project_path = project_path
+        self._reset_project_runtime_results()
         strategy_data = manifest.get("gating_strategies_data", {}).get(
             "default_strategy",
             {"id": "default_strategy", "name": "Default Strategy", "gates": []},
@@ -3998,14 +4014,25 @@ class MainWindow(QMainWindow):
         self._processed_display_scheduler.cancel_pending()
         self._current_sample_id = None
         self._channel_names = []
+        self._population_tree.clear()
+        self._workspace_tree.set_samples([])
+        self._workspace_tree.set_report(None)
+        self._results_workspace.clear()
+        self._results_workspace.set_samples([])
         self._gate_editor.set_gates(list(strategy.gates), notify=False)
         self._gate_editor.mark_undo_clean()
         self._project_dirty = False
         self._update_undo_actions()
-        self._population_tree.set_population_parents(self._population_parent_map())
+        population_parents = self._population_parent_map()
+        population_names = self._population_name_map()
+        self._population_tree.set_population_parents(population_parents)
         self._workspace_tree.set_population_hierarchy(
-            self._population_parent_map(), self._population_name_map()
+            population_parents, population_names
         )
+        self._results_workspace.set_population_hierarchy(
+            population_parents, population_names
+        )
+        self._results_workspace.set_result_state(self._result_state)
 
         self._derived_parameters = deepcopy(manifest.get("derived_parameters", []))
         self._parameter_display_mappings = deepcopy(
@@ -6823,9 +6850,14 @@ class MainWindow(QMainWindow):
 
     def _sync_statistic_result_definitions(self) -> None:
         """Synchronize Results rows with persisted statistic definitions."""
+        population_ids = tuple(self._population_parent_map())
+        removed_population_ids = (
+            self._result_state.defined_population_ids - set(population_ids)
+        )
+        self._result_state.remove_populations(removed_population_ids)
         self._result_state.replace_statistic_definitions(
             sample_ids=tuple(sample.id for sample in self._sample_browser.samples()),
-            population_ids=tuple(self._population_parent_map()),
+            population_ids=population_ids,
             statistic_definitions=tuple(
                 (
                     str(value.get("id")),
