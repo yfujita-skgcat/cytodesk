@@ -17,6 +17,8 @@ from flowdesk_core.project_commands import (
   UndoStack,
 )
 from flowdesk_storage.analysis_settings import (
+  analysis_settings_bundle_path,
+  is_analysis_settings_bundle,
   load_analysis_settings,
   save_analysis_settings,
 )
@@ -96,6 +98,31 @@ def test_save_and_load_settings_bundle(tmp_path: Path) -> None:
   assert loaded["analysis_definition"]["gating_strategies_data"] == (
     extract_analysis_settings(_project())["analysis_definition"]["gating_strategies_data"]
   )
+
+
+def test_analysis_settings_bundle_path_appends_without_replacing_dotted_name() -> None:
+  assert analysis_settings_bundle_path(Path("exp1.v2")) == Path(
+    "exp1.v2.flowdesk-settings"
+  )
+  assert analysis_settings_bundle_path(Path("FACS.v3") / "exp1") == (
+    Path("FACS.v3") / "exp1.flowdesk-settings"
+  )
+  assert analysis_settings_bundle_path("D:/FACS.v3/exp1.v2") == Path(
+    "D:/FACS.v3/exp1.v2.flowdesk-settings"
+  )
+  assert analysis_settings_bundle_path(Path("exp1.flowdesk-settings")) == Path(
+    "exp1.flowdesk-settings"
+  )
+
+
+def test_save_analysis_settings_rejects_non_bundle_directory(tmp_path: Path) -> None:
+  path = tmp_path / "existing.flowdesk-settings"
+  path.mkdir()
+
+  with pytest.raises(ValueError, match="non-analysis-settings"):
+    save_analysis_settings(path, _project())
+
+  assert not is_analysis_settings_bundle(path)
 
 
 def test_load_project_as_settings_source(tmp_path: Path) -> None:

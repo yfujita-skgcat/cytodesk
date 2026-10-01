@@ -971,6 +971,7 @@ Title font、Axis label font、Tick font、Legend font のそれぞれに `famil
 ### 15.2 analysis settings save/load
 
 `File > Save Analysis Settings...` は `.flowdesk-settings` directory bundle を作成する。
+保存時は既存フォルダを選ぶのではなくbundle名を入力する。末尾が`.flowdesk-settings`でない場合だけliteralに追加されるため、`exp1.v2`は`exp1.v2.flowdesk-settings`として保存され、名前の`.v2`は失われない。既存のsettings bundleを選んだ場合は置換確認が表示され、通常のproject bundleや任意のdirectoryは上書きできない。Cancelでは保存先履歴も変更されない。
 この bundle には gate hierarchy、analysis transform、derived parameter、未バインドの
 compensation matrix、statistics、再利用可能な自動 gate template と plot presentation
 だけが保存される。FCS のパス、sample ID、fingerprint、raw event、Results、preview、

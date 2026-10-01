@@ -140,6 +140,8 @@ from flowdesk_qt.sample_browser import SampleBrowser, _SampleInfo
 from flowdesk_qt.sample_load_scheduler import SampleLoadScheduler
 from flowdesk_qt.workspace_tree import WorkspaceTree
 from flowdesk_storage.analysis_settings import (
+    analysis_settings_bundle_path,
+    is_analysis_settings_bundle,
     load_analysis_settings,
     save_analysis_settings,
 )
@@ -3809,22 +3811,49 @@ class MainWindow(QMainWindow):
 
     def _on_save_analysis_settings(self) -> None:
         """Save reusable definitions without samples or computed Results."""
-        path_str = QFileDialog.getExistingDirectory(
+        initial_directory = self._file_dialog_directory(
+            "save_analysis_settings",
+            self._project_path.parent if self._project_path else Path.cwd(),
+        )
+        default_name = "analysis-settings"
+        if self._project_path is not None:
+            default_name = self._project_path.name
+            if default_name.lower().endswith(".flowdesk"):
+                default_name = default_name[:-len(".flowdesk")]
+        initial_path = Path(initial_directory) / default_name
+        path_str, _filter = QFileDialog.getSaveFileName(
             self,
-            "Select analysis settings bundle directory",
-            self._file_dialog_directory(
-                "save_analysis_settings",
-                self._project_path.parent if self._project_path else Path.cwd(),
-            ),
+            "Save analysis settings bundle",
+            str(initial_path),
+            "Analysis settings bundles (*.flowdesk-settings);;All files (*)",
         )
         if not path_str:
             return
-        self._remember_file_dialog_directory("save_analysis_settings", path_str)
-        path = Path(path_str)
-        if path.suffix != ".flowdesk-settings":
-            path = path.with_suffix(".flowdesk-settings")
+        path = analysis_settings_bundle_path(path_str)
+        if path.exists():
+            if not is_analysis_settings_bundle(path):
+                QMessageBox.warning(
+                    self,
+                    "Analysis Settings Save Error",
+                    "The selected target exists but is not an analysis settings bundle:\n"
+                    f"{path}",
+                )
+                return
+            answer = QMessageBox.question(
+                self,
+                "Overwrite analysis settings?",
+                f"The analysis settings bundle already exists:\n{path}\n\n"
+                "Replace it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         try:
             save_analysis_settings(path, self._build_project_manifest())
+            self._remember_file_dialog_directory(
+                "save_analysis_settings", path.parent
+            )
             self._update_status(f"Analysis settings saved to {path}")
         except Exception as exc:
             logger.error("Analysis settings save failed: %s", exc)

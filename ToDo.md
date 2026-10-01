@@ -110,7 +110,7 @@ transformを削除・変更せず、storage/editorをID参照型contractへ揃�
 - [x] Increment 3（実装済み）: population colorのdeepest descendant、`z_order`、hierarchy order、stable IDの
   優先順位をQt非依存core helperへ一本化し、GUIとBatch/CLIで共有する。P3/P4のID辞書順を反転した
   fixtureでも子P4の色が勝ち、科学値とrevisionが不変であることをtestする。
-- [ ] Increment 4: Save Analysis Settingsをbundle名指定のSave dialogへ変更し、
+- [x] Increment 4（実装済み）: Save Analysis Settingsをbundle名指定のSave dialogへ変更し、
   `.flowdesk-settings`をliteralに末尾追加する。`exp1.v2`を`exp1.v2.flowdesk-settings`として保持し、
   cancel、履歴、既存bundle確認、非bundle directory拒否、Unicode/空白/Windows pathをtestして
   user manualを更新する。

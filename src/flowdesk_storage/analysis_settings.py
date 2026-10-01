@@ -14,6 +14,32 @@ from flowdesk_core.analysis_settings import (
 from flowdesk_storage.project import load_project
 from flowdesk_storage.serialization import atomic_write_json, now_iso
 
+ANALYSIS_SETTINGS_SUFFIX = ".flowdesk-settings"
+
+
+def analysis_settings_bundle_path(path: str | Path) -> Path:
+  """Append the settings-bundle suffix without replacing name components."""
+  bundle = Path(path)
+  if not bundle.name:
+    raise ValueError("analysis settings bundle name must not be empty")
+  if not bundle.name.lower().endswith(ANALYSIS_SETTINGS_SUFFIX):
+    bundle = Path(f"{bundle}{ANALYSIS_SETTINGS_SUFFIX}")
+  return bundle
+
+
+def is_analysis_settings_bundle(path: str | Path) -> bool:
+  """Return whether *path* is an existing settings bundle, not a project."""
+  bundle = Path(path)
+  manifest_path = bundle / "manifest.json"
+  if not bundle.is_dir() or not manifest_path.is_file():
+    return False
+  try:
+    with manifest_path.open(encoding="utf-8") as handle:
+      data = json.load(handle)
+  except (OSError, ValueError, TypeError):
+    return False
+  return data.get("document_kind") == ANALYSIS_SETTINGS_DOCUMENT_KIND
+
 
 def save_analysis_settings(
   path: str | Path,
@@ -21,6 +47,10 @@ def save_analysis_settings(
 ) -> None:
   """Write an atomic `.flowdesk-settings` directory bundle."""
   bundle = Path(path)
+  if bundle.exists() and not is_analysis_settings_bundle(bundle):
+    raise ValueError(
+      f"refusing to overwrite a non-analysis-settings directory: {bundle}"
+    )
   settings = extract_analysis_settings(
     project,
     source_project_id=str(project.get("project_id", "")) or None,
