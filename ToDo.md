@@ -91,6 +91,29 @@ git status --short
 | Performance | `docs/implementation/performance-and-review.md` |
 | Performance parallel/progress | `docs/implementation/parallel-execution-and-progress.md` |
 | P1.1 | `docs/implementation/cross-platform-runtime-hardening.md` |
+| Bugfix: transform/export/settings | `docs/implementation/transform-export-settings-bug-follow-up.md` |
+
+## 優先バグ修正: Transform、population色、Analysis Settings保存先
+
+実運用で報告された4件を、
+`docs/implementation/transform-export-settings-bug-follow-up.md`の番号付きincrementとして
+上から一つずつ修正する。報告1の保存不能は妥当だが、同一parameterのversioned transformを
+複数保持すること自体は既存の正式contractである。古い一意性validatorへ合わせてgate参照中の
+transformを削除・変更せず、storage/editorをID参照型contractへ揃える。
+
+- [ ] Increment 1: current manifestのparameter単位transform一意性制約を撤去し、transform ID、
+  gate/view/statistic参照、parameter整合性の検証を維持する。既存gateが旧ID、新規gateが選択中の
+  新IDを使うprojectをsave/reload/headless実行できるようにする。
+- [ ] Increment 2: Transform Editorをlossless/dirty-aware commitへ変更し、未表示の`notes`、`role`
+  等を保持する。未使用transform削除後に隣のgate参照中transformを誤変更しないこと、および実際の
+  参照中definition変更は引き続きatomicに拒否することをGUI testする。
+- [ ] Increment 3: population colorのdeepest descendant、`z_order`、hierarchy order、stable IDの
+  優先順位をQt非依存core helperへ一本化し、GUIとBatch/CLIで共有する。P3/P4のID辞書順を反転した
+  fixtureでも子P4の色が勝ち、科学値とrevisionが不変であることをtestする。
+- [ ] Increment 4: Save Analysis Settingsをbundle名指定のSave dialogへ変更し、
+  `.flowdesk-settings`をliteralに末尾追加する。`exp1.v2`を`exp1.v2.flowdesk-settings`として保持し、
+  cancel、履歴、既存bundle確認、非bundle directory拒否、Unicode/空白/Windows pathをtestして
+  user manualを更新する。
 
 ## Release A: Scientific foundation
 

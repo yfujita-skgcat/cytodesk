@@ -290,6 +290,15 @@ unrelated legacy approximation and must never be relabeled as formal Logicle.
   derived mean or median changes only when its `StatisticSpec` changes; transformed
   statistics require an explicit transform ID in that definition.
 
+### Known validator/editor follow-up
+
+The multiple-version contract above is authoritative.  A field report identified that
+the current manifest validator and Transform Editor still reject more than one analysis
+transform for a parameter even though gates and the headless runner resolve exact IDs.
+Do not remove a referenced old version to satisfy that obsolete restriction.  Implement
+the storage, explicit-binding, and lossless-editor repair through
+`transform-export-settings-bug-follow-up.md` Increments 1 and 2.
+
 ## Stop condition
 
 If no licensed/reference implementation or equation can be verified, stop after the

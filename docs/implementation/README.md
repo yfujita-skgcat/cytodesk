@@ -107,6 +107,7 @@ release order below.
 | Sample Sheet copy | `sample-sheet-tsv-copy.md` | B1 |
 | Batch filename well | `batch-filename-well-template.md` | B7.3 |
 | Bug follow-up session/statistics | `bug-follow-up-session-and-statistics.md` | B1, A6, project lifecycle |
+| Bug follow-up transforms/export/settings | `transform-export-settings-bug-follow-up.md` | A3, B7.2-B7.4, B8.1 |
 | Samples-list FCS drag-and-drop | `sample-list-fcs-drag-and-drop.md` | A1, Sample Browser |
 
 ## Choosing a guide

@@ -30,6 +30,14 @@ The command must be disabled when there is no current project/sample session to
 receive the settings.  Saving settings is allowed without samples only when all
 definition references validate.
 
+The save action is a bundle-name workflow, not an existing-directory selection
+workflow.  The entered name receives the literal terminal suffix
+`.flowdesk-settings` when absent; an existing final name component such as
+`exp1.v2` must therefore become `exp1.v2.flowdesk-settings`, not lose `.v2`.
+Existing-target confirmation and the GUI migration from the current ambiguous
+directory chooser are specified in
+`transform-export-settings-bug-follow-up.md` Increment 4.
+
 ## Bundle format and boundaries
 
 Use a directory bundle with the suffix `.flowdesk-settings`, not a JSON file
