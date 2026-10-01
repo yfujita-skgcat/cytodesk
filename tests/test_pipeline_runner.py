@@ -1135,6 +1135,74 @@ def test_project_transform_referenced_by_gate_is_applied_exactly_once() -> None:
   assert result.event_count == 1
 
 
+def test_multiple_transform_versions_for_one_parameter_use_gate_ids() -> None:
+  strategy = GatingStrategySpec(
+    id="versioned_transforms",
+    name="Versioned transforms",
+    gates=(
+      GateSpec(
+        id="linear_gate",
+        name="Linear gate",
+        gate_type="range",
+        parent_population_id="all_events",
+        x_parameter="signal",
+        x_transform_id="signal-linear",
+        thresholds={"min": 0.5, "max": 1.5},
+      ),
+      GateSpec(
+        id="log_gate",
+        name="Log gate",
+        gate_type="range",
+        parent_population_id="all_events",
+        x_parameter="signal",
+        x_transform_id="signal-log",
+        thresholds={"min": 0.9, "max": 1.1},
+      ),
+    ),
+  )
+  project = _make_project(
+    samples=[{"id": "s1"}],
+    transforms=[
+      {
+        "id": "signal-linear",
+        "name": "Signal Linear",
+        "transform_type": "linear",
+        "parameter": "signal",
+        "settings": {"scale": 1.0, "offset": 0.0},
+        "role": "analysis",
+      },
+      {
+        "id": "signal-log",
+        "name": "Signal Log",
+        "transform_type": "log",
+        "parameter": "signal",
+        "settings": {"base": 10.0, "invalid_value_policy": "to_nan"},
+        "role": "analysis",
+      },
+    ],
+    execution_profiles=[{
+      "id": "default",
+      "gating_strategy_id": strategy.id,
+    }],
+    gating_strategies_data={strategy.id: strategy},
+  )
+  sample = SampleData(
+    "s1",
+    np.array([[1.0], [10.0], [100.0]], dtype=np.float64),
+    (ChannelSpec(id="signal", name="Signal"),),
+  )
+
+  report = PipelineRunner(project).run_samples(ExecutionContext(), (sample,))
+
+  counts = {
+    item.population_id: item.event_count
+    for item in report.population_results
+  }
+  assert report.status == "success"
+  assert counts["linear_gate"] == 1
+  assert counts["log_gate"] == 1
+
+
 # ---------------------------------------------------------------------------
 # Gating step
 # ---------------------------------------------------------------------------

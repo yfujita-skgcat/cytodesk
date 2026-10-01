@@ -101,7 +101,7 @@ git status --short
 複数保持すること自体は既存の正式contractである。古い一意性validatorへ合わせてgate参照中の
 transformを削除・変更せず、storage/editorをID参照型contractへ揃える。
 
-- [ ] Increment 1: current manifestのparameter単位transform一意性制約を撤去し、transform ID、
+- [x] Increment 1（実装済み）: current manifestのparameter単位transform一意性制約を撤去し、transform ID、
   gate/view/statistic参照、parameter整合性の検証を維持する。既存gateが旧ID、新規gateが選択中の
   新IDを使うprojectをsave/reload/headless実行できるようにする。
 - [ ] Increment 2: Transform Editorをlossless/dirty-aware commitへ変更し、未表示の`notes`、`role`

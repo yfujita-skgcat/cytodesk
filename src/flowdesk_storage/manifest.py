@@ -96,7 +96,7 @@ def validate_manifest(data: dict[str, Any]) -> None:
     )
     _validate_current_groups_and_annotations(data, gate_ids)
     _validate_current_gate_overrides(data, gate_ids)
-    _validate_current_plot_definitions(data)
+    _validate_current_plot_definitions(data, transform_parameters)
     _validate_current_integrated_overlay(data)
 
 
@@ -119,7 +119,10 @@ def _validate_current_table_definitions(value: Any) -> None:
     definition_ids.add(parsed.id)
 
 
-def _validate_current_plot_definitions(data: Mapping[str, Any]) -> None:
+def _validate_current_plot_definitions(
+  data: Mapping[str, Any],
+  transforms: Mapping[str, tuple[str, str]],
+) -> None:
   """Validate typed overlay source identity without resolving runtime data."""
   for collection_name, source_key in (("plot_views", "overlay_sources"), ("overlays", "sources")):
     definitions = data.get(collection_name, [])
@@ -135,6 +138,15 @@ def _validate_current_plot_definitions(data: Mapping[str, Any]) -> None:
       if definition_id in definition_ids:
         raise ManifestValidationError(f"duplicate {collection_name[:-1]} ID {definition_id!r}")
       definition_ids.add(definition_id)
+      for axis in ("x", "y"):
+        transform_id = definition.get(f"{axis}_transform_id")
+        if transform_id is not None:
+          _validate_plot_transform_binding(
+            transform_id,
+            definition.get(f"{axis}_parameter"),
+            f"{collection_name}[{index}] {axis}",
+            transforms,
+          )
       sources = definition.get(source_key, [])
       if not isinstance(sources, list):
         raise ManifestValidationError(f"{collection_name}[{index}].{source_key} must be an array")
@@ -150,6 +162,15 @@ def _validate_current_plot_definitions(data: Mapping[str, Any]) -> None:
         if source_id in source_ids:
           raise ManifestValidationError(f"duplicate overlay source ID {source_id!r}")
         source_ids.add(source_id)
+        for axis in ("x", "y"):
+          transform_id = source.get(f"{axis}_transform_id")
+          if transform_id is not None:
+            _validate_plot_transform_binding(
+              transform_id,
+              source.get(f"{axis}_parameter_id"),
+              f"{source_key}[{source_index}] {axis}",
+              transforms,
+            )
         if source.get("sample_id") is None and not source.get("template_source_role"):
           raise ManifestValidationError(
             f"overlay source {source_id!r} needs sample_id or template_source_role"
@@ -375,7 +396,7 @@ def _validate_current_gate_overrides(
 
 
 def _validate_current_transforms(transforms: Any) -> dict[str, tuple[str, str]]:
-  """Validate unambiguous transform types in the current project format."""
+  """Validate immutable versioned transforms indexed by unique ID."""
   if not isinstance(transforms, list):
     raise ManifestValidationError("transforms must be an array")
   valid_types = {
@@ -413,10 +434,6 @@ def _validate_current_transforms(transforms: Any) -> dict[str, tuple[str, str]]:
       raise ManifestValidationError(
         f"transform {transform_id!r} role must be 'analysis'"
       )
-    if parameter in (item[1] for item in transform_parameters.values()):
-      raise ManifestValidationError(
-        f"parameter {parameter!r} has more than one analysis transform"
-      )
     transform_parameters[transform_id] = (transform_type, parameter)
     settings = transform.get("settings", {})
     if not isinstance(settings, dict):
@@ -437,6 +454,28 @@ def _validate_current_transforms(transforms: Any) -> dict[str, tuple[str, str]]:
           f"transform {transform_id!r} has invalid Logicle settings: {exc}"
         ) from exc
   return transform_parameters
+
+
+def _validate_plot_transform_binding(
+  transform_id: Any,
+  parameter: Any,
+  context: str,
+  transforms: Mapping[str, tuple[str, str]],
+) -> None:
+  """Validate an explicit plot/view transform ID and its parameter binding."""
+  if not isinstance(transform_id, str) or not transform_id:
+    raise ManifestValidationError(
+      f"{context} transform_id must be a non-empty string or null"
+    )
+  definition = transforms.get(transform_id)
+  if definition is None:
+    raise ManifestValidationError(
+      f"{context} references unknown transform {transform_id!r}"
+    )
+  if parameter is not None and definition[1] != parameter:
+    raise ManifestValidationError(
+      f"{context} parameter does not match transform {transform_id!r}"
+    )
 
 
 def _validate_current_gate_transforms(

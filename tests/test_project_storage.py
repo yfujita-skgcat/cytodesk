@@ -2099,6 +2099,47 @@ class TestReferenceIntegrity:
     with pytest.raises(ManifestValidationError, match="unknown transform"):
       validate_manifest(manifest)
 
+  def test_multiple_transform_versions_for_one_parameter_are_allowed(self) -> None:
+    manifest = self._make_manifest(
+      transforms=[
+        {
+          "id": "signal-asinh",
+          "name": "Signal Asinh",
+          "transform_type": "asinh",
+          "parameter": "FL1-A",
+          "role": "analysis",
+          "settings": {"cofactor": 1.0},
+        },
+        {
+          "id": "signal-log",
+          "name": "Signal Log",
+          "transform_type": "log",
+          "parameter": "FL1-A",
+          "role": "analysis",
+          "settings": {"base": 10.0, "invalid_value_policy": "to_nan"},
+        },
+      ],
+      gating_strategies_data={
+        "default": {
+          "id": "default",
+          "gates": [{
+            "id": "asinh-gate",
+            "gate_type": "range",
+            "parent_population_id": "all_events",
+            "x_parameter": "FL1-A",
+            "x_transform_id": "signal-asinh",
+          }],
+        },
+      },
+      plot_views=[{
+        "id": "main-view",
+        "x_parameter": "FL1-A",
+        "x_transform_id": "signal-log",
+      }],
+    )
+
+    validate_manifest(manifest)
+
   def test_dangling_matrix_binding_reference_raises(self) -> None:
     manifest = self._make_manifest(
       compensation_bindings=[{

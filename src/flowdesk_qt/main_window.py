@@ -4061,6 +4061,19 @@ class MainWindow(QMainWindow):
              if item.get("id") == self._overlay_view_id()),
             {},
         )
+        # A parameter may have several immutable transform versions. Restore
+        # the active plot binding by ID before selecting a sample; falling back
+        # to registry order would make reload choose the wrong coordinate
+        # system for the current view.
+        self._plot_transform_overrides = {}
+        for axis in ("x", "y"):
+            parameter = saved_view.get(f"{axis}_parameter")
+            transform_key = f"{axis}_transform_id"
+            if parameter and transform_key in saved_view:
+                transform_id = saved_view.get(transform_key)
+                self._plot_transform_overrides[str(parameter)] = (
+                    None if transform_id is None else str(transform_id)
+                )
         # Restore the display-only population selection together with the
         # saved plot view. It is intentionally independent from analysis
         # execution; a later current-report validation may fall back to
@@ -4179,6 +4192,18 @@ class MainWindow(QMainWindow):
                 str(display.get("x_channel", "")),
                 str(display.get("y_channel", "")),
             )
+            for axis in ("x", "y"):
+                parameter = saved_view.get(f"{axis}_parameter")
+                transform_key = f"{axis}_transform_id"
+                if not parameter or transform_key not in saved_view:
+                    continue
+                transform = self._transform_by_id(
+                    self._plot_transform_overrides.get(str(parameter))
+                )
+                self._channel_selector.set_analysis_transform_choice(
+                    axis,
+                    "linear" if transform is None else transform.transform_type,
+                )
 
         self._default_compensation_matrix_id = manifest.get(
             "default_compensation_matrix_id"

@@ -342,7 +342,7 @@ GNOME Files、Windows Explorer、macOS Finderなどのファイルマネージ�
 
 ### 8.1 transform selector の挙動
 
-`Linear`、`Log10`、`Asinh`、`Logicle` はプロットの正式なanalysis transformを選択する。非線形transformを選ぶと、既存の同種definitionを選択するか、新しいversioned Transform IDを作成する。既存ゲートは保存済みTransform IDとmembershipを維持し、座標が一致しない輪郭だけが非表示になる。以後に作成するゲートは、現在のTransform IDを保存する。ゲートが参照するTransform ID自体を変更するには、`Manage Parameter Transforms...` と明示的な `Migrate Transform` を使う。`Custom…` は Analysis Transforms dialog を開く。
+`Linear`、`Log10`、`Asinh`、`Logicle` はプロットの正式なanalysis transformを選択する。非線形transformを選ぶと、既存の同種definitionを選択するか、新しいversioned Transform IDを作成する。同じparameterに複数のversioned Transform IDを保持でき、各gateとplot viewは明示的なIDを参照する。既存ゲートは保存済みTransform IDとmembershipを維持し、座標が一致しない輪郭だけが非表示になる。`Go to Gate`では、そのgateが保存したX/Y parameterとTransform IDを復元する。以後に作成するゲートは、現在のTransform IDを保存する。ゲートが参照するTransform ID自体を変更するには、`Manage Parameter Transforms...` と明示的な `Migrate Transform` を使う。`Custom…` は Analysis Transforms dialog を開く。
 
 既存 transform が gate 等から参照されている場合、quick selector から in-place replacement は拒否される。新しい transform ID を作り、gate の `Migrate Transform` を使う。
 

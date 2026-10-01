@@ -66,7 +66,7 @@ from flowdesk_qt.main_window import MainWindow, _project_bundle_path  # noqa: E4
 from flowdesk_qt.plot_export_dialog import PlotExportDialog  # noqa: E402
 from flowdesk_qt.plot_widget import PlotWidget  # noqa: E402
 from flowdesk_qt.sample_browser import SampleBrowser, _SampleInfo  # noqa: E402
-from flowdesk_storage.project import load_project  # noqa: E402
+from flowdesk_storage.project import load_project, save_project  # noqa: E402
 
 
 def _app() -> QApplication:
@@ -916,6 +916,53 @@ def test_project_manifest_persists_complete_active_plot_view() -> None:
     window.close()
     window.deleteLater()
     app.processEvents()
+
+
+def test_project_load_restores_explicit_plot_transform_binding(tmp_path: Path) -> None:
+  _app()
+  project_path = tmp_path / "multiple-transform-versions.flowdesk"
+  window = MainWindow()
+  try:
+    window._channel_selector.set_channels(["x", "y"], preserve_selection=False)
+    window._channel_selector.set_selected_channels("x", "y")
+    window._plot_transform_overrides = {"x": "x-log", "y": None}
+    window._plot_views = [{
+      "id": "main-view",
+      "x_parameter": "x",
+      "y_parameter": "y",
+      "x_transform_id": "x-log",
+      "y_transform_id": None,
+    }]
+    window._transforms = [
+      {
+        "id": "x-asinh", "name": "X Asinh", "transform_type": "asinh",
+        "parameter": "x", "settings": {"cofactor": 1.0}, "role": "analysis",
+      },
+      {
+        "id": "x-log", "name": "X Log", "transform_type": "log",
+        "parameter": "x",
+        "settings": {"base": 10.0, "invalid_value_policy": "to_nan"},
+        "role": "analysis",
+      },
+    ]
+    manifest = window._build_project_manifest()
+    manifest["samples"] = [{
+      "id": "s1", "name": "Sample", "path": "", "channels": [
+        {"id": "x", "name": "X"}, {"id": "y", "name": "Y"},
+      ],
+    }]
+    manifest["plot_display_settings"]["selected_sample_id"] = "s1"
+    save_project(project_path, manifest)
+
+    window._load_project_contents(project_path)
+
+    assert window._plot_transform_overrides == {"x": "x-log", "y": None}
+    assert window._active_plot_transform("x").id == "x-log"
+    assert window._channel_selector._x_analysis_transform_combo.currentData() == "log"
+  finally:
+    window.close()
+    window.deleteLater()
+    QApplication.processEvents()
 
 
 def test_project_save_name_becomes_flowdesk_bundle_directory(tmp_path: Path) -> None:
