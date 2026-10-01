@@ -76,3 +76,76 @@ def test_transform_editor_exposes_complete_settings_for_each_new_type() -> None:
     dialog.close()
     dialog.deleteLater()
     app.processEvents()
+
+
+def test_transform_editor_delete_preserves_neighbor_metadata() -> None:
+  app = _app()
+  referenced = {
+    "id": "signal-log",
+    "name": "Signal Log",
+    "transform_type": "log",
+    "parameter": "signal",
+    "settings": {"base": 10.0, "invalid_value_policy": "to_nan"},
+    "role": "analysis",
+    "notes": "Created from the axis Transform selector.",
+  }
+  dialog = TransformEditorDialog(
+    [
+      {
+        "id": "unused",
+        "name": "Unused",
+        "transform_type": "asinh",
+        "parameter": "signal",
+        "settings": {"cofactor": 1.0},
+        "role": "analysis",
+        "notes": "Unused definition",
+      },
+      referenced,
+    ],
+    (ChannelSpec(id="signal", name="Signal"),),
+  )
+  try:
+    dialog._list.setCurrentRow(0)
+    dialog._delete_transform()
+
+    definitions = dialog.transforms()
+
+    assert definitions == [referenced]
+  finally:
+    dialog.close()
+    dialog.deleteLater()
+    app.processEvents()
+
+
+def test_transform_editor_allows_multiple_versions_and_noop_is_lossless() -> None:
+  app = _app()
+  definitions = [
+    {
+      "id": "signal-asinh",
+      "name": "Signal Asinh",
+      "transform_type": "asinh",
+      "parameter": "signal",
+      "settings": {"cofactor": 1.0},
+      "role": "analysis",
+      "notes": "Asinh version",
+    },
+    {
+      "id": "signal-log",
+      "name": "Signal Log",
+      "transform_type": "log",
+      "parameter": "signal",
+      "settings": {"base": 10.0, "invalid_value_policy": "to_nan"},
+      "role": "analysis",
+      "notes": "Log version",
+    },
+  ]
+  dialog = TransformEditorDialog(
+    definitions,
+    (ChannelSpec(id="signal", name="Signal"),),
+  )
+  try:
+    assert dialog.transforms() == definitions
+  finally:
+    dialog.close()
+    dialog.deleteLater()
+    app.processEvents()

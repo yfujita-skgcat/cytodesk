@@ -231,7 +231,12 @@ class TransformEditorDialog(QDialog):
       self._list.clear()
       for transform in self._transforms:
         label = transform.get("name") or transform.get("id") or "New transform"
-        self._list.addItem(f"{label} [{transform.get('parameter') or 'unset'}]")
+        transform_id = transform.get("id") or "unset"
+        transform_type = transform.get("transform_type") or "unset"
+        self._list.addItem(
+          f"{label} [{transform.get('parameter') or 'unset'}] "
+          f"({transform_type}; {transform_id})"
+        )
       if self._transforms:
         self._list.setCurrentRow(min(selected_row, len(self._transforms) - 1))
     finally:
@@ -288,22 +293,34 @@ class TransformEditorDialog(QDialog):
   def _commit_current(self) -> None:
     if self._current_row < 0 or self._current_row >= len(self._transforms):
       return
-    self._transforms[self._current_row] = asdict(self._build_current_spec())
+    # Keep persisted metadata and extension fields that this dialog does not
+    # expose. Reconstructing a bare TransformSpec here used to erase notes
+    # after Delete moved selection to a neighboring row.
+    updated = deepcopy(self._transforms[self._current_row])
+    editable = asdict(self._build_current_spec())
+    editable.pop("role", None)
+    editable.pop("notes", None)
+    updated.update(editable)
+    self._transforms[self._current_row] = updated
 
   def _validate_all(self) -> None:
     ids: set[str] = set()
-    parameters: set[str] = set()
     for mapping in self._transforms:
-      spec = TransformSpec(**mapping)
+      spec = TransformSpec(
+        id=str(mapping.get("id", "")),
+        name=str(mapping.get("name", "")),
+        transform_type=mapping.get("transform_type", "logicle"),
+        parameter=str(mapping.get("parameter", "")),
+        settings=mapping.get("settings", {}),
+        role=mapping.get("role", "analysis"),
+        notes=str(mapping.get("notes", "")),
+      )
       if not spec.id or not spec.name or not spec.parameter:
         raise ValueError("transform ID, name, and parameter are required")
       if spec.id in ids:
         raise ValueError(f"duplicate transform ID: {spec.id}")
-      if spec.parameter in parameters:
-        raise ValueError(f"parameter already has an analysis transform: {spec.parameter}")
       validate_transform(spec)
       ids.add(spec.id)
-      parameters.add(spec.parameter)
 
   def _preview_current(self) -> None:
     try:

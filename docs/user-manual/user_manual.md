@@ -810,7 +810,7 @@ matrix bindingに従って派生値を作る。したがって、同じmatrixを
 |T, W, M, A, implementation_version|published logicle settings。implementation_version は read-only。|
 |w, td, tn|legacy logicle approximation settings。該当 type のみ。|
 |Preview|current sample から最大 200 finite values を使い inverse round-trip error を表示。|
-|OK / Cancel|valid definitions を保存、または破棄。使用中 transform の変更・削除は main window 側で拒否される。|
+|OK / Cancel|valid definitions を保存、または破棄。同じparameterの複数versionを保持でき、使用中transformの科学的定義の変更・削除はmain window側で拒否される。削除後に選択rowが移動しても、隣接transformのnotes等の保存情報は変更されない。|
 
 ### 14.8 Population Statistics editor
 

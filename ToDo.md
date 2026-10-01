@@ -104,7 +104,7 @@ transformを削除・変更せず、storage/editorをID参照型contractへ揃�
 - [x] Increment 1（実装済み）: current manifestのparameter単位transform一意性制約を撤去し、transform ID、
   gate/view/statistic参照、parameter整合性の検証を維持する。既存gateが旧ID、新規gateが選択中の
   新IDを使うprojectをsave/reload/headless実行できるようにする。
-- [ ] Increment 2: Transform Editorをlossless/dirty-aware commitへ変更し、未表示の`notes`、`role`
+- [x] Increment 2（実装済み）: Transform Editorをlossless/dirty-aware commitへ変更し、未表示の`notes`、`role`
   等を保持する。未使用transform削除後に隣のgate参照中transformを誤変更しないこと、および実際の
   参照中definition変更は引き続きatomicに拒否することをGUI testする。
 - [ ] Increment 3: population colorのdeepest descendant、`z_order`、hierarchy order、stable IDの
