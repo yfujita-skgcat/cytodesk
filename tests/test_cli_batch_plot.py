@@ -4,6 +4,7 @@ import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -33,6 +34,45 @@ from flowdesk_core.processed_display import ProcessedDisplayLayer
 from flowdesk_core.sample import SampleData
 from flowdesk_storage.migrations import CURRENT_PROJECT_VERSION
 from flowdesk_storage.project import save_project
+
+
+def test_batch_population_event_colors_apply_child_after_parent() -> None:
+  project = {
+    "plot_display_settings": {
+      "population_display_colors": {
+        "gate_z_parent": {"color": "#ff0000"},
+        "gate_a_child": {"color": "#0000ff"},
+      },
+    },
+    "gating_strategies_data": {
+      "default": {
+        "gates": [{
+          "id": "gate_z_parent",
+          "parent_population_id": "all_events",
+        }, {
+          "id": "gate_a_child",
+          "parent_population_id": "gate_z_parent",
+        }],
+      },
+    },
+  }
+  report = SimpleNamespace(population_membership=(
+    SimpleNamespace(
+      sample_id="s1", population_id="gate_z_parent",
+      mask=np.array([True, True, False, False]),
+    ),
+    SimpleNamespace(
+      sample_id="s1", population_id="gate_a_child",
+      mask=np.array([False, True, False, False]),
+    ),
+  ))
+
+  colors = batch_plot_module._population_event_colors(
+    project, "s1", report, np.ones(4, dtype=bool), default_color="#000000",
+  )
+
+  assert colors is not None
+  assert colors.tolist() == ["#ff0000", "#0000ff", "#000000", "#000000"]
 
 
 def test_batch_plot_queue_uses_definition_subdirectories_and_continues(

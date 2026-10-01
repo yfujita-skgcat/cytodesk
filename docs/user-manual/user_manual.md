@@ -1022,6 +1022,8 @@ Population IDは変わらない。
 current view、presentation、visible overlays、population colors、display sampling definition 等を使って export する。`Export 1:1` は export-only aspect option。visible advanced overlay が incompatible なら export は拒否される。
 右クリックExportでは、GUI表示の意味上のsource/title順と、ドットの前後関係を決める描画順を別々に保持する。したがって、タイトル順、source色、ドットの重なり順は同じ表示状態から再現される。現在のViewBox、transform-aware ticks、plot-area余白、表示中のgate geometryもlive snapshotとして出力に渡される。
 
+population display colorの重なりはGUIとBatch/CLIで共通の規則を使う。親より深いchild populationを後から適用し、同じ深さでは保存済み`z_order`、stable hierarchy order、stable population IDの順で決定する。gate IDの辞書順や保存mappingの順序は色の優先順位に影響しない。色は既存のauthoritative membership maskにだけ適用され、gateの再評価や解析結果の変更は行わない。
+
 plot areaの右クリック `Export` submenu と toolbar は同じ `Plot Export Options` dialogを使用する。PNG/JPEG/SVG/PDF、出力サイズ、DPI、Raster resolution（論理pixel維持またはDPIに応じたpixel拡大）、1:1 aspect、title、axis labels、ticks、gates、legend、status bannerの出力有無を選択できる。ダイアログのWidth/Heightは現在GUIで描画中のplot canvasから初期化され、1:1 aspectは既定で有効、DPIは既定で300である。1:1 aspectを有効にするとHeightは編集不可となり、Widthの値へ自動的に同期する。ここで選べるのは現在ビューの表示・描画設定であり、Batch固有の対象サンプル、ファイル名テンプレート、collision policy、worker、vector scatter設定などは含まれない。ここでのPNG/JPEG/SVG/PDFは、現在GUIに表示されているplotだけを出力する。`Batch Plot Export...` はこの現在ビュー出力とは別に、保存済み定義をheadless runnerへ渡す。右クリックExportでは、現在表示中のrendered plotがない場合は出力できない。
 
 export画像では、解析中の編集用gateハンドルを表示せず、gate outlineを実線で描画する。これは出力時だけの表示変更であり、通常画面のgate編集表示（ハンドル・点線）やgate geometry、解析結果は変更しない。

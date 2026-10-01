@@ -757,6 +757,50 @@ def test_population_event_colors_preserve_full_hex_values() -> None:
     app.processEvents()
 
 
+def test_population_event_colors_paint_child_after_parent() -> None:
+  _app()
+  window = MainWindow()
+  try:
+    window._gate_editor.set_gates([
+      GateSpec(
+        id="gate_z_parent", name="Parent", gate_type="range",
+        parent_population_id="all_events", x_parameter="x",
+        thresholds={"min": 0.0},
+      ),
+      GateSpec(
+        id="gate_a_child", name="Child", gate_type="range",
+        parent_population_id="gate_z_parent", x_parameter="x",
+        thresholds={"min": 0.0},
+      ),
+    ], notify=False)
+    window._gate_editor._population_display_colors = {
+      "gate_z_parent": "#ff0000",
+      "gate_a_child": "#0000ff",
+    }
+
+    class Membership:
+      sample_id = "s1"
+      mask = np.array([True, True, False, False])
+
+    parent_membership = Membership()
+    parent_membership.population_id = "gate_z_parent"
+    child_membership = Membership()
+    child_membership.population_id = "gate_a_child"
+    child_membership.mask = np.array([False, True, False, False])
+
+    class Report:
+      population_membership = (parent_membership, child_membership)
+
+    colors = window._population_event_colors("s1", 4, None, report=Report())
+
+    assert colors is not None
+    assert colors.tolist() == ["#ff0000", "#0000ff", "#000000", "#000000"]
+  finally:
+    window.close()
+    window.deleteLater()
+    QApplication.processEvents()
+
+
 def test_active_base_layer_does_not_inherit_manual_overlay_color() -> None:
   app = _app()
   window = MainWindow()

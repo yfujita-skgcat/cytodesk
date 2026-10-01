@@ -33,6 +33,7 @@ from flowdesk_core.execution_control import (
   resolve_execution_workers,
 )
 from flowdesk_core.fcs_io import read_fcs_sample
+from flowdesk_core.integrated_overlay import population_display_paint_order
 from flowdesk_core.models import (
   AnnotationSpec,
   BatchPlotExportSpec,
@@ -1989,7 +1990,38 @@ def _population_event_colors(
   memberships = getattr(report, "population_membership", ())
   event_count = len(display_mask)
   colors = np.full(event_count, default_color, dtype="<U7")
-  for population_id in colored:
+  parents: dict[str, str | None] = {"all_events": None}
+  strategies = project.get("gating_strategies_data", {})
+  if isinstance(strategies, Mapping):
+    for strategy in strategies.values():
+      if not isinstance(strategy, Mapping):
+        continue
+      for gate in strategy.get("gates", ()):
+        if not isinstance(gate, Mapping) or not gate.get("id"):
+          continue
+        population_id = str(gate["id"])
+        parent = gate.get("parent_population_id")
+        parents[population_id] = None if parent is None else str(parent)
+  hierarchy_order = {
+    population_id: index
+    for index, population_id in enumerate(sorted(set(parents) | set(colored)))
+  }
+  z_order = {
+    population_id: int(value["z_order"])
+    for population_id, value in raw_colors.items()
+    if isinstance(value, Mapping)
+    and isinstance(value.get("z_order"), int)
+    and not isinstance(value.get("z_order"), bool)
+    and str(population_id) in colored
+  }
+  ordered = population_display_paint_order(
+    colored,
+    parent_by_population=parents,
+    colors=colored,
+    z_order_by_population=z_order,
+    hierarchy_order=hierarchy_order,
+  )
+  for population_id in ordered:
     membership = next(
       (
         value.mask for value in memberships

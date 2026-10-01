@@ -7,6 +7,7 @@ import pytest
 from flowdesk_core.integrated_overlay import (
   OverlaySourceCandidate,
   deduplicate_overlay_sources,
+  population_display_paint_order,
   resolve_overlay_style,
   resolve_population_display_color,
 )
@@ -82,6 +83,18 @@ def test_population_display_color_uses_stable_hierarchy_order_when_z_order_ties(
   )
   assert result.population_id == "b"
   assert result.color == "#222222"
+
+
+def test_population_display_paint_order_puts_child_last_independent_of_id_order() -> None:
+  colors = {"gate_z_parent": "#ff0000", "gate_a_child": "#0000ff"}
+  parents = {"all_events": None, "gate_z_parent": "all_events", "gate_a_child": "gate_z_parent"}
+  order = population_display_paint_order(
+    colors,
+    parent_by_population=parents,
+    colors=colors,
+    hierarchy_order={"gate_a_child": 0, "gate_z_parent": 1},
+  )
+  assert order == ("gate_z_parent", "gate_a_child")
 
 
 def test_deduplication_excludes_active_sample_and_prefers_manual_route() -> None:

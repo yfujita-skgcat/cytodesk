@@ -58,7 +58,10 @@ from flowdesk_core.execution_control import (
 )
 from flowdesk_core.fcs_io import read_fcs_sample
 from flowdesk_core.gate_transform_migration import preview_gate_transform_migration
-from flowdesk_core.integrated_overlay import resolve_overlay_style
+from flowdesk_core.integrated_overlay import (
+    population_display_paint_order,
+    resolve_overlay_style,
+)
 from flowdesk_core.models import (
     AnnotationSpec,
     BatchPlotExportSpec,
@@ -2719,28 +2722,18 @@ class MainWindow(QMainWindow):
                 sorted(set(parents) | set(colored))
             )
         }
-
-        def depth(population_id: str) -> int:
-            current = population_id
-            seen: set[str] = set()
-            value = 0
-            while current in parents and current not in seen:
-                seen.add(current)
-                parent = parents.get(current)
-                if not parent or parent == "all_events":
-                    break
-                value += 1
-                current = parent
-            return value
-
-        ordered = sorted(
+        z_order = {
+            population_id: int(value["z_order"])
+            for population_id, value in definitions.items()
+            if isinstance(value.get("z_order"), int)
+            and not isinstance(value.get("z_order"), bool)
+        }
+        ordered = population_display_paint_order(
             colored,
-            key=lambda population_id: (
-                depth(population_id),
-                -int(definitions[population_id].get("z_order") or 2**31 - 1),
-                -hierarchy_order.get(population_id, 0),
-                population_id,
-            ),
+            parent_by_population=parents,
+            colors=colored,
+            z_order_by_population=z_order,
+            hierarchy_order=hierarchy_order,
         )
         for population_id in ordered:
             membership = next(

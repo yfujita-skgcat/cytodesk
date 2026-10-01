@@ -107,7 +107,7 @@ transformを削除・変更せず、storage/editorをID参照型contractへ揃�
 - [x] Increment 2（実装済み）: Transform Editorをlossless/dirty-aware commitへ変更し、未表示の`notes`、`role`
   等を保持する。未使用transform削除後に隣のgate参照中transformを誤変更しないこと、および実際の
   参照中definition変更は引き続きatomicに拒否することをGUI testする。
-- [ ] Increment 3: population colorのdeepest descendant、`z_order`、hierarchy order、stable IDの
+- [x] Increment 3（実装済み）: population colorのdeepest descendant、`z_order`、hierarchy order、stable IDの
   優先順位をQt非依存core helperへ一本化し、GUIとBatch/CLIで共有する。P3/P4のID辞書順を反転した
   fixtureでも子P4の色が勝ち、科学値とrevisionが不変であることをtestする。
 - [ ] Increment 4: Save Analysis Settingsをbundle名指定のSave dialogへ変更し、

@@ -134,6 +134,81 @@ def resolve_overlay_style(
   raise ValueError("default_event_color must be non-empty")
 
 
+def _population_color_key(
+  population_id: str,
+  *,
+  depth_by_population: Mapping[str, int],
+  z_order_by_population: Mapping[str, int],
+  hierarchy_order: Mapping[str, int],
+) -> tuple[int, int, int, str]:
+  """Return the deterministic winner key for one colored population."""
+  return (
+    -depth_by_population.get(population_id, 0),
+    z_order_by_population.get(population_id, 2**31 - 1),
+    hierarchy_order.get(population_id, 2**31 - 1),
+    population_id,
+  )
+
+
+def population_display_paint_order(
+  population_ids: Iterable[str],
+  *,
+  parent_by_population: Mapping[str, str | None],
+  colors: Mapping[str, str],
+  z_order_by_population: Mapping[str, int] | None = None,
+  hierarchy_order: Mapping[str, int] | None = None,
+) -> tuple[str, ...]:
+  """Return colored populations in back-to-front precedence order.
+
+  The last applicable population wins for an event.  Parents are therefore
+  painted before descendants, while sibling precedence follows the same key as
+  :func:`resolve_population_display_color`.  The helper is intentionally free
+  of Qt and NumPy so GUI and headless adapters share only the ordering contract.
+  """
+  candidates = tuple(sorted({
+    population_id
+    for population_id in population_ids
+    if population_id in colors and colors[population_id]
+  }))
+  if not candidates:
+    return ()
+
+  def depth(population_id: str) -> int:
+    current = population_id
+    seen: set[str] = set()
+    value = 0
+    while current in parent_by_population:
+      if current in seen:
+        raise ValueError(f"population hierarchy cycle at {population_id!r}")
+      seen.add(current)
+      parent = parent_by_population[current]
+      if not parent or parent == "all_events":
+        break
+      if parent not in parent_by_population:
+        break
+      value += 1
+      current = parent
+    return value
+
+  depth_by_population = {population_id: depth(population_id) for population_id in candidates}
+  z_orders = z_order_by_population or {}
+  hierarchy = hierarchy_order or {
+    population_id: index for index, population_id in enumerate(candidates)
+  }
+  winner_order = sorted(
+    candidates,
+    key=lambda population_id: _population_color_key(
+      population_id,
+      depth_by_population=depth_by_population,
+      z_order_by_population=z_orders,
+      hierarchy_order=hierarchy,
+    ),
+  )
+  # ``winner_order`` starts with the best candidate. Reverse it for painting so
+  # the best candidate is applied last to overlapping event masks.
+  return tuple(reversed(winner_order))
+
+
 def resolve_population_display_color(
   containing_population_ids: Iterable[str],
   *,
@@ -151,15 +226,12 @@ def resolve_population_display_color(
   ]
   if not candidates:
     return PopulationColorResolution(None, default_color, "plot_default_event")
-  winner = min(
-    candidates,
-    key=lambda population_id: (
-      -depth_by_population.get(population_id, 0),
-      z_order_by_population.get(population_id, 2**31 - 1),
-      hierarchy_order.get(population_id, 2**31 - 1),
-      population_id,
-    ),
-  )
+  winner = min(candidates, key=lambda population_id: _population_color_key(
+    population_id,
+    depth_by_population=depth_by_population,
+    z_order_by_population=z_order_by_population,
+    hierarchy_order=hierarchy_order,
+  ))
   return PopulationColorResolution(
     population_id=winner,
     color=colors[winner],
