@@ -268,6 +268,43 @@ Acceptance criteria:
 - Parent-child gate behavior remains correct: child gates are restricted to the parent
   population in headless execution.
 
+### 5a. Range Gate Plot Interaction
+
+A range gate is one-dimensional: `x_parameter` names its parameter, `x_transform_id`
+names its coordinate system, `y_parameter` and `y_transform_id` are `None`, and
+`thresholds` holds inclusive `min` and/or `max`. The plot shows and edits it with a
+pyqtgraph `LinearRegionItem` (both bounds) or `InfiniteLine` (one-sided gate).
+
+Display rules:
+
+- Histogram mode (Y is Count): show range gates whose `x_parameter` is the X channel as
+  a vertical band.
+- 2D scatter: show range gates whose `x_parameter` is the X channel as a vertical band,
+  and range gates whose `x_parameter` is the Y channel as a horizontal band.
+- The gate's `x_transform_id` must match the transform of the axis it is drawn on.
+  Mismatches are hidden and reported in `hidden_gate_reasons`, like 2D gates.
+- A one-sided gate is drawn as a single draggable line. Dragging it must not add the
+  missing bound.
+- The band spans the whole ViewBox along the other axis; it carries no Y meaning.
+
+Editing rules:
+
+- Dragging the band or either edge emits `sigRegionChangeFinished`, converted to
+  thresholds in the gate's stored coordinate system. The bounds are sorted so `min <= max`.
+- Edits use the queued geometry-update path (`_queue_gate_geometry_changed`) so the item
+  emitting the signal is never destroyed during its own dispatch.
+- Highlight and style refresh must update the edge-line pens and the band brush.
+- Single-plot Qt export renders the visible range items like other gate items, with
+  solid export pens. Headless batch export (`flowdesk_core.plot_export`) does not draw
+  range gates yet; that is out of scope for this increment.
+
+Acceptance criteria:
+
+- A range gate is visible in histogram mode and on the matching axis of a 2D plot.
+- Dragging an edge updates thresholds, and GUI population counts match headless
+  `PipelineRunner` counts.
+- A one-sided gate stays one-sided after editing.
+
 ### 6. Population Selection and Backgating
 
 The GUI should support:
@@ -381,7 +418,7 @@ Once a gate is finished or edited, convert it to `GateSpec`.
 5. Connect gate creation to `GateEditor`, gate overlays, and pipeline runner.
 6. Implement rectangle gate edit handles.
 7. Implement polygon gate creation and editing.
-8. Implement range gate creation/editing.
+8. Implement range gate creation/editing (see section 5a).
 9. Make gate overlay and gate editing correct under log10/asinh scale.
 10. Add population highlighting/backgating.
 11. Persist display settings and GUI-created analysis state if not already persisted.

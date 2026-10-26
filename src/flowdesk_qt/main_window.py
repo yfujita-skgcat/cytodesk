@@ -2153,9 +2153,19 @@ class MainWindow(QMainWindow):
             self._plot_widget.set_axis_transforms(x_display_scale, "linear")
             self._plot_widget.plot_histogram(x_data, x_label=x_name)
 
-            # No 2D gate overlays in histogram mode.
+            # Only one-dimensional range gates on X apply to a histogram.
             self._plot_widget.clear_gates()
             self._plot_widget.clear_overlay_layers()
+            for idx, gate in enumerate(self._display_gates()):
+                if gate.gate_type == "range" and gate.x_parameter == x_id:
+                    self._plot_widget.add_gate_overlay(
+                        gate,
+                        idx,
+                        self._gate_editor.population_outline_color(gate.id),
+                    )
+            self._gate_editor.set_overlay_status(
+                self._plot_widget.display_state()["hidden_gate_reasons"]
+            )
         else:
             # 2D scatter plot.
             try:
@@ -2214,12 +2224,20 @@ class MainWindow(QMainWindow):
             # Refresh gate overlays
             self._plot_widget.clear_gates()
             for idx, gate in enumerate(self._display_gates()):
-                if gate.x_parameter == x_id and gate.y_parameter == y_id:
-                    self._plot_widget.add_gate_overlay(
-                        gate,
-                        idx,
-                        self._gate_editor.population_outline_color(gate.id),
-                    )
+                outline_color = self._gate_editor.population_outline_color(gate.id)
+                if gate.gate_type == "range":
+                    # A range gate is drawn on whichever axis shows its
+                    # parameter (X takes precedence when both axes match).
+                    if gate.x_parameter == x_id:
+                        self._plot_widget.add_gate_overlay(
+                            gate, idx, outline_color, range_axis="x"
+                        )
+                    elif gate.x_parameter == y_id:
+                        self._plot_widget.add_gate_overlay(
+                            gate, idx, outline_color, range_axis="y"
+                        )
+                elif gate.x_parameter == x_id and gate.y_parameter == y_id:
+                    self._plot_widget.add_gate_overlay(gate, idx, outline_color)
             self._gate_editor.set_overlay_status(
                 self._plot_widget.display_state()["hidden_gate_reasons"]
             )

@@ -1374,11 +1374,10 @@ def test_gate_highlight_resolves_visible_item_by_stable_id() -> None:
   widget = PlotWidget()
   try:
     non_renderable = GateSpec(
-      id="range-gate",
-      name="range",
-      gate_type="range",
-      x_parameter="X",
-      thresholds={"min": 1.0},
+      id="boolean-gate",
+      name="boolean",
+      gate_type="boolean",
+      thresholds={"operation": "not", "source_ids": ["rectangle-gate"]},
     )
     visible = GateSpec(
       id="rectangle-gate",

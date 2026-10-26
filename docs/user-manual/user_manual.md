@@ -375,7 +375,7 @@ GNOME Files、Windows Explorer、macOS Finderなどのファイルマネージ�
 |rectangle gate creation 中の left drag|rectangle preview を表示し、release で gate を作成する。|
 |polygon gate creation 中の left click|vertex を追加する。|
 |polygon gate creation 中の double click|polygon を確定する。|
-|gate overlay drag|editable geometry を移動・変更し、短い debounce 後に結果を stale/preview 更新する。|
+|gate overlay drag|editable geometry を移動・変更し、短い debounce 後に結果を stale/preview 更新する。range gate は帯の内側の drag で範囲全体を移動し、境界線の drag で `min`/`max` を個別に変更する。|
 
 ### 9.3 plot area の右クリックメニュー
 
@@ -595,6 +595,15 @@ FCS metadata table は read-only で sorting 可能である。
 #### range
 
 `Parameter min` と `Parameter max` を入力する。X parameter の 1D range gate。
+
+range gate は plot 上に帯として表示され、drag で編集できる。
+
+- histogram（Y = Count）では、gate の parameter が X のとき縦の帯として表示する。
+- 2D plot では、gate の parameter が X 軸なら縦の帯、Y 軸なら横の帯として表示する。どちらの軸にもない場合は表示しない。
+- gate の transform と、表示している軸の transform が一致しない場合は表示せず、hidden reason に理由を出す。
+- `min` または `max` の片方だけを持つ gate は境界線 1 本で表示する。drag しても片側 gate のまま保存される。`min`/`max` の両方を持たない gate は表示しない。
+- 帯は plot の auto-range に影響しない。
+- GUI からの単一 plot export（PNG/JPG/SVG/PDF）には表示中の range gate が描画される。Batch export（CLI/headless renderer）の画像には range gate はまだ描画されない。
 
 #### polygon
 

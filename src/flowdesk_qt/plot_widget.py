@@ -29,7 +29,12 @@ from typing import Any, Literal, cast
 
 import numpy as np
 from numpy.typing import NDArray
-from pyqtgraph import GraphicsLayoutWidget, ScatterPlotItem
+from pyqtgraph import (
+    GraphicsLayoutWidget,
+    InfiniteLine,
+    LinearRegionItem,
+    ScatterPlotItem,
+)
 from pyqtgraph.graphicsItems.ViewBox import ViewBox  # type: ignore[attr-defined]
 from PySide6.QtCore import QMarginsF, QPoint, QSize, QSizeF, Qt, QTimer, Signal
 from PySide6.QtGui import (
@@ -74,6 +79,7 @@ InteractiveGateType = Literal["rectangle", "polygon"]
 InteractionMode = Literal["pan", "select", "gate"]
 RangeMode = Literal["robust_auto", "full_auto", "manual"]
 TickPolicy = Literal["auto", "decades", "one_two_five", "legacy_auto"]
+RangeGateAxis = Literal["x", "y"]
 
 
 def _logical_font_pixel_size(size: float) -> int:
@@ -83,6 +89,33 @@ def _logical_font_pixel_size(size: float) -> int:
     value avoids Qt's screen-DPI-dependent point conversion on high-DPI hosts.
     """
     return max(1, round(float(size) * POINTS_TO_PX))
+
+
+class _RangeGateRegion(LinearRegionItem):
+    """Two-sided range gate band with the ROI-like pen API used for gates."""
+
+    def pen(self) -> QPen:
+        return QPen(self.lines[0].pen)
+
+    def setPen(self, *args: Any, **kwargs: Any) -> None:  # noqa: N802 - Qt API
+        for line in self.lines:
+            line.setPen(*args, **kwargs)
+
+
+class _RangeGateLine(InfiniteLine):
+    """One-sided range gate boundary.
+
+    Exposes ``sigRegionChangeFinished`` so gate edit wiring is shared with
+    ROI and region items.
+    """
+
+    sigRegionChangeFinished = Signal(object)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.sigPositionChangeFinished.connect(
+            lambda *_args: self.sigRegionChangeFinished.emit(self)
+        )
 
 # ---------------------------------------------------------------------------
 # PlotWidget
@@ -1093,15 +1126,25 @@ class PlotWidget(QWidget):
         gate: GateSpec,
         gate_index: int | None = None,
         outline_color: str | None = None,
+        range_axis: RangeGateAxis = "x",
     ) -> None:
-        """Add a gate geometry overlay in data coordinates."""
-        item = self._create_gate_item(gate, gate_index, outline_color)
+        """Add a gate geometry overlay in data coordinates.
+
+        ``range_axis`` selects the plot axis on which a one-dimensional range
+        gate is drawn; it is ignored for other gate types.
+        """
+        item = self._create_gate_item(gate, gate_index, outline_color, range_axis)
         if item is not None:
-            self._plot_item.addItem(item)
+            # A range band spans the whole view and its bounds may be far
+            # outside the data; it must not drive auto-range.
+            self._plot_item.addItem(
+                item,
+                ignoreBounds=isinstance(item, (_RangeGateRegion, _RangeGateLine)),
+            )
             self._gate_items.append(item)
             self._gate_item_ids.append(gate.id)
             self._gate_item_outline_colors.append(outline_color)
-        elif not self._gate_matches_current_axes(gate):
+        elif not self._gate_matches_current_axes(gate, range_axis):
             self._hidden_gate_reasons.append(
                 f"{gate.name} [{gate.id}] uses different axis transforms"
             )
@@ -2017,11 +2060,12 @@ class PlotWidget(QWidget):
         gate: GateSpec,
         gate_index: int | None = None,
         outline_color: str | None = None,
+        range_axis: RangeGateAxis = "x",
     ) -> Any:
         """Create a pyqtgraph geometry item for a gate."""
         from pyqtgraph import mkPen  # type: ignore[attr-defined]
 
-        if not self._gate_matches_current_axes(gate):
+        if not self._gate_matches_current_axes(gate, range_axis):
             return None
 
         pen = mkPen(
@@ -2082,30 +2126,81 @@ class PlotWidget(QWidget):
             self._connect_gate_item_changed(ellipse, gate, gate_index)
             return ellipse
 
-        # range / boolean gates do not have a 2D geometry overlay.
+        if gate.gate_type == "range":
+            return self._create_range_gate_item(gate, gate_index, pen, range_axis)
+
+        # Boolean gates do not have a geometry overlay.
         return None
 
-    def _gate_matches_current_axes(self, gate: GateSpec) -> bool:
-        x_transform_id = gate.x_transform_id
-        y_transform_id = gate.y_transform_id
-        if x_transform_id is not None:
-            if (
-                self._x_transform_spec is None
-                or self._x_transform_spec.id != x_transform_id
-            ):
-                return False
-        elif self._x_transform_spec is not None or self._x_transform != "linear":
+    def _create_range_gate_item(
+        self,
+        gate: GateSpec,
+        gate_index: int | None,
+        pen: Any,
+        range_axis: RangeGateAxis,
+    ) -> Any:
+        """Create a draggable band (two bounds) or line (one bound)."""
+        bounds: dict[str, float] = {}
+        for name in ("min", "max"):
+            if name not in gate.thresholds:
+                continue
+            try:
+                value = float(gate.thresholds[name])
+            except (TypeError, ValueError):
+                return None
+            if not np.isfinite(value):
+                return None
+            bounds[name] = value
+        if not bounds:
+            # An unbounded range accepts every event and has no boundary.
+            return None
+
+        if len(bounds) == 2:
+            item: Any = _RangeGateRegion(
+                values=(bounds["min"], bounds["max"]),
+                orientation="vertical" if range_axis == "x" else "horizontal",
+                pen=pen,
+                brush=self._make_brush(
+                    self._style.gate_fill_color, self._style.gate_fill_opacity
+                ),
+                movable=True,
+            )
+        else:
+            item = _RangeGateLine(
+                pos=next(iter(bounds.values())),
+                angle=90 if range_axis == "x" else 0,
+                pen=pen,
+                movable=True,
+            )
+        self._connect_gate_item_changed(item, gate, gate_index)
+        return item
+
+    def _gate_matches_current_axes(
+        self,
+        gate: GateSpec,
+        range_axis: RangeGateAxis = "x",
+    ) -> bool:
+        if gate.gate_type == "range":
+            # A range gate stores its single coordinate system on X even when
+            # it is drawn on the plot's Y axis.
+            return self._axis_matches_transform(range_axis, gate.x_transform_id)
+        if not self._axis_matches_transform("x", gate.x_transform_id):
             return False
         if gate.gate_type in {"rectangle", "polygon", "ellipse"}:
-            if y_transform_id is not None:
-                if (
-                    self._y_transform_spec is None
-                    or self._y_transform_spec.id != y_transform_id
-                ):
-                    return False
-            elif self._y_transform_spec is not None or self._y_transform != "linear":
-                return False
+            return self._axis_matches_transform("y", gate.y_transform_id)
         return True
+
+    def _axis_matches_transform(
+        self,
+        axis: RangeGateAxis,
+        transform_id: str | None,
+    ) -> bool:
+        """Return whether gate coordinates equal this axis' view coordinates."""
+        spec = self._x_transform_spec if axis == "x" else self._y_transform_spec
+        display = self._x_transform if axis == "x" else self._y_transform
+        if transform_id is not None:
+            return spec is not None and spec.id == transform_id
+        return spec is None and display == "linear"
 
     def _update_transform_ticks(
         self,
@@ -2303,6 +2398,20 @@ class PlotWidget(QWidget):
                     "rotation": float(state.get("angle", 0.0)) * np.pi / 180.0,
                 },
             )
+
+        if gate.gate_type == "range":
+            thresholds = dict(gate.thresholds)
+            if isinstance(item, _RangeGateRegion):
+                low, high = sorted(float(value) for value in item.getRegion())
+                thresholds["min"] = low
+                thresholds["max"] = high
+            elif isinstance(item, _RangeGateLine):
+                # Keep a one-sided gate one-sided: move only its stored bound.
+                bound = "min" if "min" in thresholds else "max"
+                thresholds[bound] = float(item.value())
+            else:
+                return None
+            return replace(gate, thresholds=thresholds)
 
         return None
 
