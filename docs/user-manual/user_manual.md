@@ -375,7 +375,8 @@ GNOME Files、Windows Explorer、macOS Finderなどのファイルマネージ�
 |rectangle gate creation 中の left drag|rectangle preview を表示し、release で gate を作成する。|
 |polygon gate creation 中の left click|vertex を追加する。|
 |polygon gate creation 中の double click|polygon を確定する。|
-|gate overlay drag|editable geometry を移動・変更し、短い debounce 後に結果を stale/preview 更新する。|
+|range gate creation 中の left drag|X 方向の範囲 preview を表示し、release で drag 始点と終点の X を `min`/`max` とする range gate を作成する。Y 方向の動きは無視される。幅 0 の drag では作成されない。|
+|gate overlay drag|editable geometry を移動・変更し、短い debounce 後に結果を stale/preview 更新する。range gate は帯の内側の drag で範囲全体を移動し、境界線の drag で `min`/`max` を個別に変更する。|
 
 ### 9.3 plot area の右クリックメニュー
 
@@ -407,7 +408,7 @@ plot 上部の黄系 banner は、sample gate override status、results stale re
 |---|---|
 |Gate type|`rectangle`、`range`、`polygon`、`ellipse`、`boolean`|
 |creation context label|parent、sample、current axes、scale/transform IDs を表示する。|
-|Create Gate|選択 gate type で新規作成。rectangle/polygon は plot interaction、range/ellipse/boolean は dialog。|
+|Create Gate|選択 gate type で新規作成。rectangle/polygon/range は plot interaction、ellipse/boolean は dialog。range は histogram（Y = Count）と 2D plot のどちらでも作成でき、常に現在の X parameter に作られる。|
 |Delete Selected|選択 gate を削除する。child gate や Boolean source から参照される gate は削除拒否。削除したgateのResults行と保持済み結果も直ちに除去され、Resultsはstaleになる。|
 
 ### 10.2 Gate hierarchy
@@ -594,7 +595,16 @@ FCS metadata table は read-only で sorting 可能である。
 
 #### range
 
-`Parameter min` と `Parameter max` を入力する。X parameter の 1D range gate。
+`Parameter min` と `Parameter max` を入力する。X parameter の 1D range gate。通常の Create Gate は dialog ではなく plot drag で作る。Edit Geometry では数値入力を使う。
+
+range gate は plot 上に帯として表示され、drag で編集できる。
+
+- histogram（Y = Count）では、gate の parameter が X のとき縦の帯として表示する。
+- 2D plot では、gate の parameter が X 軸なら縦の帯、Y 軸なら横の帯として表示する。どちらの軸にもない場合は表示しない。
+- gate の transform と、表示している軸の transform が一致しない場合は表示せず、hidden reason に理由を出す。
+- `min` または `max` の片方だけを持つ gate は境界線 1 本で表示する。drag しても片側 gate のまま保存される。`min`/`max` の両方を持たない gate は表示しない。
+- 帯は plot の auto-range に影響しない。
+- GUI からの単一 plot export（PNG/JPG/SVG/PDF）には表示中の range gate が描画される。Batch export（CLI/headless renderer）の画像には range gate はまだ描画されない。
 
 #### polygon
 

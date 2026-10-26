@@ -869,8 +869,8 @@ class GateEditor(QWidget):
     def on_interactive_gate_requested(self, callback) -> None:
         """Register callback for plot-based gate creation requests.
 
-        Callback receives ``(gate_type: str)``.  Rectangle and polygon gates
-        are drawn on the plot pane; range gates still use the numeric dialog.
+        Callback receives ``(gate_type: str)``.  Rectangle, polygon, and range
+        gates are drawn on the plot pane; range gates always use the X axis.
         """
         self._interactive_gate_callbacks.append(callback)
 
@@ -970,12 +970,16 @@ class GateEditor(QWidget):
         y_ch = self._y_channel or "Y"
         self._parent_population_id = self._creation_parent_population_id()
 
-        if gate_type in {"rectangle", "polygon"}:
+        if gate_type in {"rectangle", "polygon", "range"}:
             if not self._emit_interactive_gate_requested(gate_type):
                 self._status_label.setText("Ready")
                 return
             if gate_type == "rectangle":
                 self._status_label.setText("Drag on plot to create rectangle gate...")
+            elif gate_type == "range":
+                self._status_label.setText(
+                    "Drag horizontally on plot to create range gate on X..."
+                )
             else:
                 self._status_label.setText("Click plot vertices; double-click to finish...")
             return
