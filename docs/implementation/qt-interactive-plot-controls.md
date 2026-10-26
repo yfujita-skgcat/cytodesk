@@ -287,6 +287,16 @@ Display rules:
   missing bound.
 - The band spans the whole ViewBox along the other axis; it carries no Y meaning.
 
+Creation rules:
+
+- Selecting `range` in Create Gate starts plot interaction instead of the numeric dialog,
+  in both histogram and 2D mode. A horizontal drag defines `min`/`max` on the current X
+  parameter; vertical motion is ignored. Range gates are not created on the Y axis.
+- Creation goes through `GateEditor.add_gate`, the same path as rectangle creation, with
+  the same plot coordinate context (`x_transform_id`) as the drawn axis.
+- A zero-width drag creates nothing.
+- The numeric dialog remains available from Edit Geometry.
+
 Editing rules:
 
 - Dragging the band or either edge emits `sigRegionChangeFinished`, converted to
@@ -303,6 +313,8 @@ Acceptance criteria:
 - A range gate is visible in histogram mode and on the matching axis of a 2D plot.
 - Dragging an edge updates thresholds, and GUI population counts match headless
   `PipelineRunner` counts.
+- Dragging in histogram mode with Create Gate `range` creates a gate with the expected
+  `min`/`max` and transform ID.
 - A one-sided gate stays one-sided after editing.
 
 ### 6. Population Selection and Backgating

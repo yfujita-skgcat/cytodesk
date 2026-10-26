@@ -75,7 +75,7 @@ from flowdesk_qt.plot_style import PlotStyleSettings
 logger = logging.getLogger(__name__)
 
 AxisTransform = Literal["linear", "log10", "asinh"]
-InteractiveGateType = Literal["rectangle", "polygon"]
+InteractiveGateType = Literal["rectangle", "polygon", "range"]
 InteractionMode = Literal["pan", "select", "gate"]
 RangeMode = Literal["robust_auto", "full_auto", "manual"]
 TickPolicy = Literal["auto", "decades", "one_two_five", "legacy_auto"]
@@ -169,6 +169,7 @@ class PlotWidget(QWidget):
         self._hidden_gate_reasons: list[str] = []
         self._preview_item: Any | None = None
         self._gate_geometry_callbacks: list[Any] = []
+        self._range_gate_drawn_callbacks: list[Any] = []
         self._x_label: str = ""
         self._y_label: str = ""
         self._max_display_points: int = 20_000
@@ -1690,13 +1691,21 @@ class PlotWidget(QWidget):
         """
         self._gate_geometry_callbacks.append(callback)
 
+    def on_range_gate_drawn(self, callback) -> None:
+        """Register callback for a finished range-gate creation drag.
+
+        Callback receives ``(low: float, high: float)`` in X view
+        coordinates, with ``low <= high``.
+        """
+        self._range_gate_drawn_callbacks.append(callback)
+
     def begin_gate_creation(self, gate_type: InteractiveGateType) -> None:
         """Temporarily capture plot mouse input for interactive gate creation.
 
         Outside this short-lived state, mouse events are delegated to
         pyqtgraph so normal pan/zoom/range operations remain available.
         """
-        if gate_type not in ("rectangle", "polygon"):
+        if gate_type not in ("rectangle", "polygon", "range"):
             raise ValueError(f"unsupported interactive gate type: {gate_type}")
         self._active_gate_creation = gate_type
         self._drag_start = None
@@ -2561,6 +2570,23 @@ class PlotWidget(QWidget):
         )
         self._set_preview_item(rect)
 
+    def _update_range_preview(self, start_x: float, end_x: float) -> None:
+        from pyqtgraph import mkPen  # type: ignore[attr-defined]
+
+        low, high = sorted((start_x, end_x))
+        if isinstance(self._preview_item, LinearRegionItem):
+            self._preview_item.setRegion((low, high))
+            return
+        preview_color = QColor(self._contrast_gate_color())
+        region = LinearRegionItem(
+            values=(low, high),
+            orientation="vertical",
+            pen=mkPen(color=preview_color, width=2, style=Qt.DotLine),
+            brush=self._make_brush(preview_color.name(), 0.12),
+            movable=False,
+        )
+        self._set_preview_item(region)
+
     def _update_polygon_preview(self) -> None:
         from pyqtgraph import PlotDataItem, mkPen  # type: ignore[attr-defined]
         from PySide6.QtGui import QColor
@@ -3059,6 +3085,9 @@ class PlotWidget(QWidget):
         if self._is_range_drag(event):
             self._on_range_drag(event)
             return
+        if self._active_gate_creation == "range":
+            self._on_range_gate_drag(event)
+            return
         if self._active_gate_creation != "rectangle":
             self._default_mouse_drag_event(event)
             return
@@ -3093,6 +3122,28 @@ class PlotWidget(QWidget):
                 invoke_callback(
                     cb, data_pos[0], data_pos[1], False, dragging=True
                 )
+
+        event.accept()
+
+    def _on_range_gate_drag(self, event: Any) -> None:
+        """Handle a horizontal drag that creates an X-axis range gate."""
+        data_pos = self._get_data_position(event)
+        if data_pos is None:
+            event.accept()
+            return
+
+        if event.isStart():
+            self._drag_start = data_pos
+        elif event.isFinish():
+            drag_start = self._drag_start
+            self._drag_start = None
+            self._clear_preview()
+            if drag_start is not None:
+                low, high = sorted((drag_start[0], data_pos[0]))
+                for cb in self._range_gate_drawn_callbacks:
+                    invoke_callback(cb, low, high)
+        elif self._drag_start is not None:
+            self._update_range_preview(self._drag_start[0], data_pos[0])
 
         event.accept()
 

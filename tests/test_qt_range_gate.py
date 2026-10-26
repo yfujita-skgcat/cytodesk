@@ -21,6 +21,7 @@ from flowdesk_core.gating_strategy import (  # noqa: E402
   evaluate_gating_strategy_with_membership,
 )
 from flowdesk_core.models import GateSpec, GatingStrategySpec, TransformSpec  # noqa: E402
+from flowdesk_qt.channel_selector import COUNT_CHANNEL  # noqa: E402
 from flowdesk_qt.main_window import MainWindow  # noqa: E402
 from flowdesk_qt.plot_widget import (  # noqa: E402
   PlotWidget,
@@ -53,6 +54,26 @@ def _range_gate(**thresholds: float) -> GateSpec:
 def _pen_state(item: object) -> tuple[str, float, object]:
   pen = item.pen() if callable(item.pen) else item.pen
   return (pen.color().name(), pen.widthF(), pen.style())
+
+
+class _FakeDragEvent:
+  def __init__(self, data_pos: tuple[float, float], start: bool, finish: bool) -> None:
+    self.data_pos = data_pos
+    self._start = start
+    self._finish = finish
+    self.accepted = False
+
+  def isStart(self) -> bool:  # noqa: N802 - pyqtgraph event API
+    return self._start
+
+  def isFinish(self) -> bool:  # noqa: N802 - pyqtgraph event API
+    return self._finish
+
+  def button(self) -> object:
+    return None
+
+  def accept(self) -> None:
+    self.accepted = True
 
 
 def test_two_sided_range_gate_is_vertical_band_on_x_axis() -> None:
@@ -256,6 +277,105 @@ def test_clear_gates_disconnects_and_disposes_range_items() -> None:
   finally:
     widget.close()
     widget.deleteLater()
+    app.processEvents()
+
+
+def test_range_gate_creation_drag_reports_sorted_x_bounds() -> None:
+  app = _app()
+  widget = PlotWidget()
+  original_drag = widget._default_mouse_drag_event
+  original_get_data_position = widget._get_data_position
+  try:
+    default_calls: list[object] = []
+    drawn: list[tuple[float, float]] = []
+    widget._default_mouse_drag_event = default_calls.append
+    widget._get_data_position = lambda event: event.data_pos
+    widget.on_range_gate_drawn(lambda low, high: drawn.append((low, high)))
+    widget.begin_gate_creation("range")
+
+    widget._on_mouse_drag(_FakeDragEvent((6.0, 1.0), start=True, finish=False))
+    widget._on_mouse_drag(_FakeDragEvent((4.0, 9.0), start=False, finish=False))
+    preview = widget._preview_item
+    assert preview is not None
+    assert preview.getRegion() == pytest.approx((4.0, 6.0))
+    widget._on_mouse_drag(_FakeDragEvent((2.0, 50.0), start=False, finish=False))
+    assert widget._preview_item is preview
+    finish = _FakeDragEvent((2.0, 50.0), start=False, finish=True)
+    widget._on_mouse_drag(finish)
+
+    assert default_calls == []
+    assert finish.accepted is True
+    assert widget._preview_item is None
+    # Only X endpoints matter; vertical motion is ignored.
+    assert drawn == [(2.0, 6.0)]
+  finally:
+    widget._get_data_position = original_get_data_position
+    widget._default_mouse_drag_event = original_drag
+    widget.clear_gate_creation()
+    widget.close()
+    widget.deleteLater()
+    app.processEvents()
+
+
+def test_main_window_range_drag_creates_gate_matching_headless() -> None:
+  app = _app()
+  window = MainWindow()
+  original_get_data_position = window._plot_widget._get_data_position
+  events = np.array([
+    [1.0, 10.0],
+    [3.0, 20.0],
+    [5.0, 30.0],
+    [7.0, 40.0],
+    [9.0, 50.0],
+  ])
+  try:
+    window._current_sample_id = "sample"
+    window._channel_names = ["X", "Y"]
+    window._channel_selector.set_channels(["X", "Y"])
+    # Range gates can be drawn on a histogram (Y = Count).
+    window._channel_selector.set_selected_channels("X", COUNT_CHANNEL)
+    window._gate_editor.set_plot_channels("X", COUNT_CHANNEL)
+    window._gate_editor.set_plot_transforms(None, None)
+    window._plot_widget._get_data_position = lambda event: event.data_pos
+
+    assert window._on_interactive_gate_requested("range") is True
+    plot = window._plot_widget
+    plot._on_mouse_drag(_FakeDragEvent((7.0, 0.0), start=True, finish=False))
+    plot._on_mouse_drag(_FakeDragEvent((3.0, 5.0), start=False, finish=False))
+    plot._on_mouse_drag(_FakeDragEvent((3.0, 5.0), start=False, finish=True))
+
+    gates = window._gate_editor.gates()
+    assert len(gates) == 1
+    gate = gates[0]
+    assert gate.gate_type == "range"
+    assert gate.x_parameter == "X"
+    assert gate.y_parameter is None
+    assert gate.x_transform_id is None
+    assert gate.thresholds == {"min": 3.0, "max": 7.0}
+    assert plot._active_gate_creation is None
+
+    _results, masks = evaluate_gating_strategy_with_membership(
+      GatingStrategySpec(id="s", name="s", gates=(gate,)),
+      events,
+      ["X", "Y"],
+    )
+    assert masks[gate.id].tolist() == [False, True, True, True, False]
+  finally:
+    window._plot_widget._get_data_position = original_get_data_position
+    window.close()
+    window.deleteLater()
+    app.processEvents()
+
+
+def test_main_window_zero_width_range_drag_creates_nothing() -> None:
+  app = _app()
+  window = MainWindow()
+  try:
+    window._create_range_gate(4.0, 4.0)
+    assert window._gate_editor.gates() == []
+  finally:
+    window.close()
+    window.deleteLater()
     app.processEvents()
 
 

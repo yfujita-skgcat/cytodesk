@@ -1318,6 +1318,7 @@ class MainWindow(QMainWindow):
 
         # Connect plot mouse events to gate creation
         self._plot_widget.on_mouse_clicked(self._on_plot_mouse_clicked)
+        self._plot_widget.on_range_gate_drawn(self._on_range_gate_drawn)
         self._plot_widget.on_gate_geometry_changed(self._queue_gate_geometry_changed)
 
     # -- sample handling -----------------------------------------------------
@@ -5825,6 +5826,43 @@ class MainWindow(QMainWindow):
         self._gate_editor.add_gate(gate)
         self._update_status(f"Rectangle gate created: {gate.name}")
 
+    def _on_range_gate_drawn(self, low: float, high: float) -> None:
+        """Finish plot-based range gate creation from a horizontal drag."""
+        self._plot_widget.clear_gate_creation()
+        self._create_range_gate(low, high)
+
+    def _create_range_gate(self, x1: float, x2: float) -> None:
+        """Create an X-axis range gate from two drag endpoints."""
+        from flowdesk_core.models import GateSpec
+
+        low = min(x1, x2)
+        high = max(x1, x2)
+        if abs(high - low) < 1e-10:
+            self._update_status("Range gate not created: drag a non-zero width.")
+            return
+
+        x_name = self._channel_selector.x_channel_id()
+        _x_scale, _y_scale, x_transform_id, _y_transform_id = (
+            self._gate_editor.plot_coordinate_context()
+        )
+        if not self._gate_editor.has_plot_coordinate_context():
+            # Same programmatic fallback as rectangle creation.
+            x_transform = self._active_plot_transform(x_name)
+            x_transform_id = None if x_transform is None else x_transform.id
+        gate = GateSpec(
+            id=f"gate_{uuid.uuid4().hex[:8]}",
+            name=f"range_{len(self._gate_editor.gates()) + 1}",
+            gate_type="range",
+            parent_population_id=(
+                self._gate_editor.creation_parent_population_id()
+            ),
+            x_parameter=x_name,
+            x_transform_id=x_transform_id,
+            thresholds={"min": low, "max": high},
+        )
+        self._gate_editor.add_gate(gate)
+        self._update_status(f"Range gate created: {gate.name}")
+
     def _on_gate_geometry_changed(self, gate_index: int, gate) -> None:
         """Persist interactive ROI edits back into the gate editor and invalidate results."""
         # The ROI item is already at the final geometry. Avoid the generic
@@ -5879,6 +5917,16 @@ class MainWindow(QMainWindow):
                 "Load and select a sample before creating a gate.",
             )
             return False
+
+        if gate_type == "range":
+            # Range gates are one-dimensional, so they can be drawn on a
+            # histogram as well as on a 2D plot; they always use X.
+            self._gate_editor.cancel_polygon()
+            self._plot_widget.begin_gate_creation("range")
+            self._update_status(
+                "Drag horizontally on the plot to create a range gate on X."
+            )
+            return True
 
         if self._channel_selector.is_count_mode():
             self._update_status(
